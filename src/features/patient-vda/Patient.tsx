@@ -1,0 +1,411 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Send } from "lucide-react";
+import { ApiError } from "../../api/client";
+import { getSessionPatientContext, sendTurn, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
+import type { Language, Turn } from "../../types/api";
+import { VoiceInput } from "./VoiceInput";
+
+type Message = { q?: string; t?: Turn; e?: string };
+type SessionPatient = { name: string; age?: number; gender?: string; language?: Language; conditions?: string[]; medications?: Array<{ name: string; dosage?: string; frequency?: string }>; labs?: Array<{ name: string; value?: string; unit?: string }> };
+
+const token = import.meta.env.VITE_DEV_AUTH_TOKEN || "";
+
+const quick: Record<Language, string[]> = {
+  hi: [
+    "💊 मेरी कौन सी दवाइयाँ चल रही हैं?",
+    "📊 मेरी रिपोर्ट्स दिखाएं",
+    "🏥 नजदीकी अस्पताल ढूंढें",
+    "📜 PM-JAY योजना जानकारी",
+  ],
+  en: [
+    "💊 My medicines",
+    "📊 My lab reports",
+    "🏥 Find nearby hospital",
+    "📜 PM-JAY info",
+  ],
+};
+
+const quickQuery: Record<string, string> = {
+  "💊 मेरी कौन सी दवाइयाँ चल रही हैं?": "मेरी कौन सी दवाइयाँ चल रही हैं?",
+  "📊 मेरी रिपोर्ट्स दिखाएं": "मेरी HbA1c रिपोर्ट क्या है?",
+  "🏥 नजदीकी अस्पताल ढूंढें": "मेरे घर के पास कौन सा अस्पताल है?",
+  "📜 PM-JAY योजना जानकारी": "PM-JAY योजना की जानकारी क्या है?",
+  "💊 My medicines": "Which medicines are in my active record?",
+  "📊 My lab reports": "What is my HbA1c lab report?",
+  "🏥 Find nearby hospital": "Which hospital is near my location?",
+  "📜 PM-JAY info": "What is PM-JAY scheme coverage?",
+};
+
+export default function Patient() {
+  const { sessionId: selectedSessionId } = useParams();
+  const navigate = useNavigate();
+  const [lang, setLang] = useState<Language>("hi"),
+    [sid, setSid] = useState(selectedSessionId || ""),
+    [state, setState] = useState<"loading" | "ready" | "select" | "error">(selectedSessionId ? "loading" : "select"),
+    [list, setList] = useState<Message[]>([]),
+    [input, setInput] = useState(""),
+    [busy, setBusy] = useState(false),
+    [uploading, setUploading] = useState(false),
+    [patient, setPatient] = useState<SessionPatient | null>(null),
+    [voiceOn, setVoiceOn] = useState(() => localStorage.vdaVoiceOn !== 'false');
+
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const uploadInput = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => { localStorage.vdaVoiceOn = String(voiceOn); }, [voiceOn]);
+
+  useEffect(() => {
+    let active = true;
+    if (!selectedSessionId) {
+      setSid(''); setPatient(null); setState('select'); return () => { active = false; };
+    }
+    setSid(selectedSessionId); setPatient(null); setList([]); setState('loading');
+    getSessionPatientContext(undefined, selectedSessionId)
+      .then((context) => {
+        if (!active) return;
+        setPatient(context.patient);
+        if (context.patient?.language === 'hi' || context.patient?.language === 'en') setLang(context.patient.language);
+        setState('ready');
+      })
+      .catch(() => { if (active) setState('error'); });
+    return () => { active = false; };
+  }, [selectedSessionId]);
+
+  useEffect(() => () => { audio.current?.pause(); }, []);
+
+  async function speak(text: string) {
+    if (!text) return;
+    try {
+      audio.current?.pause();
+      const blob = await synthesizeVoice(text.slice(0, 2500), undefined, lang === 'hi' ? 'hi-IN' : 'en-IN');
+      const url = URL.createObjectURL(blob);
+      const player = new Audio(url);
+      player.onended = () => URL.revokeObjectURL(url);
+      audio.current = player;
+      await player.play();
+    } catch { /* Voice fallback */ }
+  }
+
+  async function ask(q: string) {
+    if (!q || busy) return;
+    setList((x) => [...x, { q }]);
+    setInput("");
+    setBusy(true);
+    try {
+      const turn = await sendTurn(sid, undefined, q, lang);
+      setList((x) => [...x, { t: turn }]);
+      const content: any = turn.content;
+      const patientText = content.summary || content[lang] || content.en || content.hi || content.reason || content.text || '';
+      if (voiceOn) void speak(patientText);
+    } catch (error: unknown) {
+      const apiError = error instanceof ApiError ? error : undefined;
+      const safeMessage = apiError?.patientSafeMessage?.[lang];
+      setList((x) => [
+        ...x,
+        {
+          e:
+            safeMessage ||
+            (lang === "hi"
+              ? "VDA सेवा अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद दोबारा प्रयास करें।"
+              : "Unable to connect to VDA. Please try again."),
+        },
+      ]);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function uploadPrescription(file: File) {
+    if (!sid || !file || uploading) return;
+    
+    setList((x) => [...x, { q: lang === 'hi' ? 'मैंने अपनी prescription upload की है।' : 'I have uploaded my prescription.' }]);
+    
+    setUploading(true);
+    setBusy(true);
+
+    try {
+      const record = await uploadSessionPrescription(undefined, sid, file);
+      setList((x) => [...x, {
+        t: {
+          intent: 'PRESCRIPTION_QUERY',
+          response_type: 'text',
+          content: {
+            summary: lang === 'hi' ? 'धन्यवाद। मैंने आपकी prescription पढ़ ली है:' : 'Thank you. I have read your prescription:',
+            prescription: record
+          }
+        } as Turn
+      }]);
+    } catch (error: unknown) {
+      const apiError = error instanceof ApiError ? error : undefined;
+      const safeMessage = apiError?.patientSafeMessage?.[lang];
+      const message = safeMessage || (lang === 'hi'
+        ? ({
+            UPLOAD_FAILED: 'Prescription upload में समस्या आई। कृपया पुनः प्रयास करें।',
+            PRESCRIPTION_EXTRACTION_FAILED: 'Prescription की जानकारी पूरी तरह नहीं पढ़ी जा सकी। कृपया साफ़ फोटो या PDF अपलोड करें।',
+            PRESCRIPTION_SERVICE_UNAVAILABLE: 'पर्चा पढ़ने की सेवा अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद दोबारा प्रयास करें।',
+            GEMINI_UNAVAILABLE: 'पर्चा पढ़ने की सेवा अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद दोबारा प्रयास करें।',
+            UNSUPPORTED_FILE: 'कृपया समर्थित PDF या Image (JPG/PNG) फाइल अपलोड करें।',
+            INVALID_FILE: 'चुनी गई फाइल अमान्य या खाली है।',
+          }[apiError?.code || 'UPLOAD_FAILED'] || 'Prescription upload में समस्या आई। कृपया पुनः प्रयास करें।')
+        : ({
+            UPLOAD_FAILED: 'Prescription upload failed. Please try again.',
+            PRESCRIPTION_EXTRACTION_FAILED: 'Could not read this prescription clearly. Please upload a clearer photo or PDF.',
+            PRESCRIPTION_SERVICE_UNAVAILABLE: 'Prescription service is temporarily unavailable. Please try again later.',
+            GEMINI_UNAVAILABLE: 'Prescription service is temporarily unavailable. Please try again later.',
+            UNSUPPORTED_FILE: 'Please upload a supported PDF or Image file.',
+            INVALID_FILE: 'The selected file is invalid or empty.',
+          }[apiError?.code || 'UPLOAD_FAILED'] || 'Prescription upload failed. Please try again.'));
+      setList((x) => [...x, { e: message }]);
+    } finally {
+      setUploading(false);
+      setBusy(false);
+    }
+  }
+
+  if (state !== "ready")
+    return (
+      <main className="patient">
+        <section className="phone loading patient-selection">
+          {state === 'loading' && (lang === 'hi' ? 'सत्र लोड हो रहा है...' : 'Loading patient session...')}
+          {state === 'select' && (
+            <>
+              <h1>VDA Health</h1>
+              <p>Please select a synthetic patient to start a conversation session.</p>
+              <button onClick={() => navigate('/admin/patients')}>Select Synthetic Patient</button>
+              <small style={{ marginTop: '12px', display: 'block', color: '#64748b' }}>DEVELOPMENT / SYNTHETIC DATA — NOT REAL PATIENT DATA</small>
+            </>
+          )}
+          {state === 'error' && (
+            <>
+              <p>{lang === 'hi' ? 'सत्र लोड करने में असमर्थ।' : 'Unable to load session.'}</p>
+              <button onClick={() => navigate('/admin/patients')}>
+                {lang === 'hi' ? 'Synthetic Patients पर वापस जाएँ' : 'Back to Synthetic Patients'}
+              </button>
+            </>
+          )}
+        </section>
+      </main>
+    );
+
+  return (
+    <main className="patient">
+      <section className="phone">
+        <header className="patient-header">
+          <div className="patient-brand"><b>🏥 VDA Health</b><small>🟢 Online / Ready</small></div>
+          <div className="patient-controls">
+            <button
+              className={lang === "hi" ? "active" : ""}
+              onClick={() => setLang("hi")}
+            >
+              हिंदी
+            </button>
+            <button
+              className={lang === "en" ? "active" : ""}
+              onClick={() => setLang("en")}
+            >
+              English
+            </button>
+            <button aria-pressed={voiceOn} onClick={() => { audio.current?.pause(); setVoiceOn((value) => !value); }}>
+              {voiceOn ? '🔊 Voice ON' : '🔇 Voice OFF'}
+            </button>
+          </div>
+        </header>
+
+        <section className="patient-identity" aria-label="Selected synthetic patient">
+          <span aria-hidden="true" style={{ fontSize: '1.4rem' }}>👤 </span>
+          <div>
+            <b>{patient?.name}</b>
+            <small>Age: {patient?.age ?? 'Not recorded'} • {patient?.gender || 'Male'}</small>
+            <p>{patient?.conditions?.length ? patient.conditions.join(' • ') : 'No conditions recorded.'}</p>
+          </div>
+          <em style={{ background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontStyle: 'normal', fontSize: '0.7rem', fontWeight: 600 }}>
+            DEVELOPMENT / SYNTHETIC PATIENT
+          </em>
+        </section>
+
+        <div className="messages">
+          <article className="bubble">
+            <p>
+              {lang === "hi"
+                ? `नमस्ते ${patient?.name || ''} जी। मैं आपका VDA Health Assistant हूँ।${patient?.conditions?.length ? ` आपके स्वास्थ्य रिकॉर्ड में ${patient.conditions.join(', ')} दर्ज है।` : ''} मैं आपके उपलब्ध स्वास्थ्य रिकॉर्ड के आधार पर आपकी दवाइयों, रिपोर्ट्स, prescriptions, adherence, सरकारी योजनाओं और नजदीकी अस्पतालों के बारे में मदद कर सकता हूँ।`
+                : `Hello ${patient?.name || ''}. I am your VDA Health Assistant.${patient?.conditions?.length ? ` Your health record lists ${patient.conditions.join(', ')}.` : ''} I can help you understand your medicines, reports, prescriptions, adherence, government schemes, and nearby hospitals.`}
+            </p>
+          </article>
+          {list.map((m, i) => (
+            <MessageView key={i} m={m} lang={lang} onSpeak={speak} onAsk={ask} activeMeds={patient?.medications || []} />
+          ))}
+          {busy && (
+            <article className="bubble typing">
+              {lang === 'hi' ? 'VDA उत्तर लिख रहा है...' : 'VDA is typing...'}
+            </article>
+          )}
+        </div>
+
+        <div className="quick">
+          {quick[lang].map((label) => (
+            <button key={label} onClick={() => ask(quickQuery[label])}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <section className="prescription-upload-compact">
+          <div className="upload-info">
+            <b>📄 {lang === 'hi' ? 'Prescription अपलोड करें' : 'Upload Prescription'}</b>
+            <p>{lang === 'hi' ? 'दवाइयों और जांच की जानकारी समझने के लिए prescription अपलोड करें।' : 'Upload a prescription to understand medicines and tests.'}</p>
+          </div>
+          <input ref={uploadInput} className="sr-only" type="file" accept=".pdf,image/*,.txt,.md" disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) void uploadPrescription(file); e.currentTarget.value = ''; }} />
+          <button type="button" className="upload-btn" disabled={uploading} onClick={() => uploadInput.current?.click()}>
+            {uploading ? (lang === 'hi' ? 'पढा जा रहा है...' : 'Reading...') : (lang === 'hi' ? '📄 Upload Prescription' : '📄 Upload Prescription')}
+          </button>
+        </section>
+
+        <form
+          className="composer"
+          onSubmit={(e) => {
+            e.preventDefault();
+            ask(input);
+          }}
+        >
+          <button type="button" className="composer-attach-btn" disabled={uploading} onClick={() => uploadInput.current?.click()} title={lang === 'hi' ? 'Prescription अपलोड करें' : 'Upload prescription'}>
+            📎
+          </button>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder={
+              lang === "hi" ? "अपना प्रश्न यहाँ लिखें..." : "Type your question..."
+            }
+          />
+          <VoiceInput language={lang} token={token} disabled={busy} onTranscript={ask} />
+          <button>
+            <Send />
+          </button>
+        </form>
+      </section>
+    </main>
+  );
+}
+
+function MessageView({ m, lang, onSpeak, onAsk, activeMeds }: { m: Message; lang: Language; onSpeak: (t: string) => void; onAsk: (q: string) => void; activeMeds?: any[] }) {
+  if (m.q) return <article className="bubble user"><p>{m.q}</p></article>;
+  if (m.e) return <article className="bubble error"><p>{m.e}</p></article>;
+  if (!m.t) return null;
+  const turn = m.t;
+  const content: any = turn.content || {};
+  const text = content.summary || content[lang] || content.en || content.hi || content.reason || content.text || '';
+  const prescription = content.prescription;
+
+  return (
+    <article className="bubble assistant">
+      {text && <p>{text}</p>}
+      {prescription && <PrescriptionSummary record={prescription} lang={lang} onAsk={onAsk} activeMeds={activeMeds} />}
+      {content.cards?.length > 0 && (
+        <div className="cards-grid">
+          {content.cards.map((c: any, idx: number) => (
+            <div key={idx} className="card-item">
+              <b>{c.title}</b>
+              <p>{c.value}</p>
+              <small>{c.subtitle}</small>
+            </div>
+          ))}
+        </div>
+      )}
+      {content.actions?.length > 0 && (
+        <div className="actions-chips">
+          {content.actions.map((a: any, idx: number) => (
+            <button key={idx} className="action-chip" onClick={() => onAsk(a.action || a.label)}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </article>
+  );
+}
+
+function PrescriptionSummary({ record, lang, onAsk, activeMeds = [] }: { record: any; lang: Language; onAsk: (q: string) => void; activeMeds?: any[] }) {
+  const medicines = record.medications || [];
+  const investigations = record.investigations || [];
+  const doctor = record.prescriberName;
+  const date = record.prescriptionDate;
+
+  return (
+    <section className="card prescription-summary-card">
+      <div className="prescription-card-header">
+        <span className="prescription-header-icon">📄</span>
+        <div style={{ flex: 1 }}>
+          <b className="prescription-title">{lang === 'hi' ? 'Prescription जानकारी' : 'Prescription information'}</b>
+          {doctor || date ? (
+            <div className="prescription-meta">
+              {[
+                doctor && `${lang === 'hi' ? 'डॉक्टर: ' : 'Dr. '}${doctor}`,
+                date && `${lang === 'hi' ? 'दिनांक: ' : 'Date: '}${typeof date === 'string' ? date.split('T')[0] : String(date).split('T')[0]}`
+              ].filter(Boolean).join(' • ')}
+            </div>
+          ) : (
+            <div className="prescription-meta-none">
+              {lang === 'hi' ? 'डॉक्टर/दिनांक का विवरण उपलब्ध नहीं है' : 'Doctor/date not specified'}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="prescription-card-body">
+        {medicines.length > 0 && (
+          <div className="prescription-section">
+            <span className="section-title">{lang === 'hi' ? 'दवाइयाँ (Medicines)' : 'Medicines'}</span>
+            <div className="medication-list">
+              {medicines.map((medicine: any, index: number) => {
+                const medName = medicine.medicationName || medicine.name || 'Unknown Medicine';
+                const dosage = medicine.dosage || medicine.strength || '';
+                const frequency = medicine.frequency || '';
+                const timing = medicine.instructions || medicine.duration || '';
+
+                return (
+                  <div key={index} className="medication-item">
+                    <div className="med-primary">
+                      <b className="med-name">{medName}</b>
+                      {dosage && <span className="med-dosage">{dosage}</span>}
+                    </div>
+                    {(frequency || timing) && (
+                      <div className="med-instructions">
+                        {frequency && <span>{frequency}</span>}
+                        {timing && <span> • {timing}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {investigations.length > 0 && (
+          <div className="prescription-section">
+            <span className="section-title">{lang === 'hi' ? 'जाँच (Tests / Investigations)' : 'Investigations / Tests'}</span>
+            <ul className="investigation-list">
+              {investigations.map((test: any, index: number) => (
+                <li key={index}>
+                  {test.rawName || test.normalizedName || test.name || 'Unnamed test'}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="prescription-actions-container" style={{ marginTop: '12px' }}>
+          <div className="actions-chips">
+            <button className="action-chip" onClick={() => onAsk(lang === 'hi' ? 'इस दवाई से क्या होता है?' : 'What does this medicine do?')}>
+              💊 {lang === 'hi' ? 'इस दवाई से क्या होता है?' : 'What does this medicine do?'}
+            </button>
+            <button className="action-chip" onClick={() => onAsk(lang === 'hi' ? 'ये टेस्ट क्यों हैं?' : 'Why are these tests recommended?')}>
+              🧪 {lang === 'hi' ? 'ये टेस्ट क्यों हैं?' : 'Why these tests?'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

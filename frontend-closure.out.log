@@ -1,0 +1,37 @@
+
+> vda-frontend@0.1.0 dev
+> vite --host 127.0.0.1
+
+
+  VITE v8.2.2  ready in 827 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+  ➜  press h + enter to show help
+2:58:16 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+2:59:24 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+2:59:25 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+3:00:11 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+3:00:13 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+3:00:27 pm [vite] (client) hmr update /src/pages/AdminPages.tsx
+3:00:29 pm [vite] (client) hmr update /src/pages/AdminPages.tsx
+3:00:40 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+3:00:41 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx
+3:36:24 pm [vite] (client) hmr update /src/features/knowledge/Knowledge.tsx, /src/pages/Schemes.tsx, /src/features/patient-vda/Patient.tsx, /src/pages/SyntheticPatients.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/pages/Prescriptions.tsx, /src/pages/Medications.tsx, /src/features/patient-vda/VoiceInput.tsx
+3:36:26 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx
+3:40:50 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx
+4:41:56 pm [vite] (client) hmr update /src/pages/AdminPages.tsx
+4:42:29 pm [vite] (client) hmr update /src/pages/AdminPages.tsx
+4:42:55 pm [vite] (client) hmr update /src/App.tsx
+4:43:23 pm [vite] (client) hmr update /src/features/knowledge/Knowledge.tsx, /src/pages/Schemes.tsx, /src/features/patient-vda/Patient.tsx, /src/pages/SyntheticPatients.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/pages/Prescriptions.tsx, /src/pages/Medications.tsx, /src/features/patient-vda/VoiceInput.tsx
+4:44:08 pm [vite] (client) hmr update /src/features/knowledge/Knowledge.tsx
+4:48:01 pm [vite] (client) hmr update /src/App.tsx
+8:09:06 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx, /src/features/knowledge/Knowledge.tsx, /src/pages/Schemes.tsx, /src/pages/SyntheticPatients.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/pages/Prescriptions.tsx, /src/pages/Medications.tsx, /src/features/patient-vda/VoiceInput.tsx
+8:09:07 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx, /src/features/knowledge/Knowledge.tsx, /src/pages/Schemes.tsx, /src/pages/SyntheticPatients.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/pages/Prescriptions.tsx, /src/pages/Medications.tsx, /src/features/patient-vda/VoiceInput.tsx
+8:09:09 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx
+8:09:12 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx
+8:44:29 pm [vite] (client) hmr update /src/features/knowledge/Knowledge.tsx, /src/pages/Schemes.tsx, /src/features/patient-vda/Patient.tsx, /src/pages/SyntheticPatients.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/pages/Prescriptions.tsx, /src/pages/Medications.tsx, /src/features/patient-vda/VoiceInput.tsx
+8:44:33 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx
+8:45:06 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx
+8:45:09 pm [vite] (client) hmr update /src/App.tsx
+8:45:46 pm [vite] (client) hmr update /src/styles/app.css
+8:46:33 pm [vite] (client) hmr update /src/pages/SyntheticPatients.tsx

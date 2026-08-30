@@ -1,0 +1,16 @@
+
+> vda-frontend@0.1.0 dev
+> vite --host 127.0.0.1
+
+1:31:40 pm [vite] (client) Re-optimizing dependencies because vite config has changed
+
+  VITE v8.2.2  ready in 2493 ms
+
+  ➜  Local:   http://127.0.0.1:5173/
+  ➜  press h + enter to show help
+1:31:41 pm [vite] (client) [optimizer] bundling dependencies...
+7:02:09 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx, /src/pages/Schemes.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/features/knowledge/Knowledge.tsx, /src/pages/Medications.tsx, /src/pages/SyntheticPatients.tsx, /src/features/patient-vda/VoiceInput.tsx
+7:02:13 pm [vite] (client) hmr update /src/pages/AdminPages.tsx
+7:02:17 pm [vite] (client) hmr update /src/App.tsx
+7:22:09 pm [vite] (client) hmr update /src/features/patient-vda/Patient.tsx, /src/pages/Schemes.tsx, /src/pages/Facilities.tsx, /src/pages/AdminPages.tsx, /src/features/knowledge/Knowledge.tsx, /src/pages/Medications.tsx, /src/pages/SyntheticPatients.tsx, /src/features/patient-vda/VoiceInput.tsx
+7:22:12 pm [vite] (client) hmr update /src/App.tsx

@@ -1,0 +1,11 @@
+import { FormEvent, useEffect, useState } from 'react';
+import { listSchemes, schemeEligibility } from '../api/vda';
+
+export default function Schemes() {
+  const [token, setToken] = useState(sessionStorage.vdaToken || import.meta.env.VITE_DEV_AUTH_TOKEN || '');
+  const [filters, setFilters] = useState({ state: '', scope: '', query: '' }); const [schemes, setSchemes] = useState<any[]>([]); const [error, setError] = useState(''); const [eligibility, setEligibility] = useState<any>(null);
+  const load = () => listSchemes(token, filters).then(setSchemes).catch((e) => setError(e.message));
+  useEffect(() => { if (token) load(); }, []);
+  const search = (event: FormEvent) => { event.preventDefault(); setError(''); load(); };
+  return <><h1>Schemes</h1><section className="panel"><b>Source-backed scheme navigation</b><p>Eligibility is never inferred from patient demographics or medical data.</p><input placeholder="Admin bearer token" value={token} onChange={e => setToken(e.target.value)} /></section><section className="panel"><form onSubmit={search}><input placeholder="State" value={filters.state} onChange={e => setFilters({ ...filters, state: e.target.value })}/><select value={filters.scope} onChange={e => setFilters({ ...filters, scope: e.target.value })}><option value="">National and state</option><option value="NATIONAL">National</option><option value="STATE">State</option></select><input placeholder="Scheme name" value={filters.query} onChange={e => setFilters({ ...filters, query: e.target.value })}/><button>Search</button></form><p>{error}</p></section><section className="panel"><h2>Results ({schemes.length})</h2>{schemes.map(scheme => <article key={scheme.id}><b>{scheme.name}</b><p>{scheme.geographyScope === 'NATIONAL' ? 'National' : scheme.state}</p>{scheme.coverageInformation && <p>{scheme.coverageInformation}</p>}<p>Required documents: {scheme.requiredDocuments?.join(', ') || 'Unknown in source'}</p><small>Source: {scheme.sourceDocumentId} · {scheme.sourceVersion || 'Unknown version'}</small><p><button onClick={() => schemeEligibility(token, scheme.schemeId).then(setEligibility).catch(e => setError(e.message))}>Check assistance status</button></p></article>)}</section>{eligibility && <section className="panel"><h2>Eligibility assistance</h2><b>{eligibility.status}</b><p>{eligibility.message}</p></section>}</>;
+}
