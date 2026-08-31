@@ -13,6 +13,8 @@ export const updateSyntheticPatient=(token:string|undefined,id:string,body:any)=
 export const deleteSyntheticPatient=(token:string|undefined,id:string)=>api(`/dev/demo/patients/${id}`,token,{method:'DELETE'});
 export const startSyntheticSession=(token:string|undefined,id:string)=>api<any>(`/dev/demo/patients/${id}/session`,token,{method:'POST'});
 export const getSessionPatientContext=(token:string|undefined,sessionId:string)=>api<any>(`/dev/demo/sessions/${sessionId}/patient-context`,token);
+export const getClinicalReviewState=(token:string|undefined,sessionId:string)=>api<{reviewRequested:boolean;teleconsultationOffered:boolean;teleconsultationConfigured:boolean;messages:Array<{speaker:'PATIENT'|'CLINICIAN';text:string;createdAt:string}>}>(`/sessions/${sessionId}/clinical-review`,token);
+export const requestClinicalReviewTeleconsultation=(token:string|undefined,sessionId:string)=>api<{teleconsultationConfigured:boolean}>(`/sessions/${sessionId}/clinical-review/teleconsultation`,token,{method:'POST'});
 export const recordFeedback=(token:string|undefined,body:any)=>api('/dev/demo/feedback',token,{method:'POST',body:JSON.stringify(body)});
 export const listFacilities=(token:string|undefined,filters:Record<string,string>)=>api<any[]>(`/admin/facilities?${new URLSearchParams(Object.entries(filters).filter(([, value]) => value !== ''))}`,token);
 export const importFacilitySource=(token:string|undefined,documentId:string,state:string,file:File)=>{const body=new FormData();body.append('state',state);body.append('file',file);return api<any>(`/admin/facilities/import/documents/${documentId}/file`,token,{method:'POST',body});};
@@ -29,6 +31,8 @@ export const getClinicalEscalation=(token:string|undefined,id:string)=>api<any>(
 export const getOpenClinicalEscalationCount=(token?:string)=>api<{open:number}>('/admin/escalations/open-count',token);
 export const reviewClinicalEscalation=(token:string|undefined,id:string,body:{outcome:'TRUE_POSITIVE'|'FALSE_POSITIVE'|'ANNOTATED';note?:string})=>api<any>(`/admin/escalations/${id}/review`,token,{method:'PATCH',body:JSON.stringify(body)});
 export const reviewClinicalResponse=(token:string|undefined,id:string,body:{decision:'APPROVED'|'CORRECTED'|'ANNOTATED';note?:string;correctedResponse?:string})=>api<any>(`/admin/escalations/${id}/response-review`,token,{method:'PATCH',body:JSON.stringify(body)});
+export const sendClinicianMessage=(token:string|undefined,id:string,message:string,idempotencyKey=crypto.randomUUID())=>api<any>(`/admin/escalations/${id}/messages`,token,{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify({message})});
+export const endClinicalChat=(token:string|undefined,id:string,idempotencyKey=crypto.randomUUID())=>api<any>(`/admin/escalations/${id}/end-clinical-chat`,token,{method:'POST',headers:{'Idempotency-Key':idempotencyKey}});
 export const listPrescriptions=(token:string|undefined,patientId:string)=>api<any[]>(`/dev/demo/patients/${patientId}/prescriptions`,token);
 export const approvePrescription=(token:string|undefined,patientId:string,id:string)=>api<any>(`/dev/demo/patients/${patientId}/prescriptions/${id}/approve`,token,{method:'POST'});
 export const uploadPrescription=(token:string|undefined,patientId:string,file:File)=>{const body=new FormData();body.append('file',file);return api<any>(`/dev/demo/patients/${patientId}/prescriptions`,token,{method:'POST',body});};

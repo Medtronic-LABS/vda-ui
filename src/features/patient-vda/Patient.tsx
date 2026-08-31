@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Send } from "lucide-react";
 import { ApiError } from "../../api/client";
-import { getSessionPatientContext, sendTurn, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
+import { getClinicalReviewState, getSessionPatientContext, requestClinicalReviewTeleconsultation, sendTurn, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
 import type { Language, Turn } from "../../types/api";
 import { VoiceInput } from "./VoiceInput";
 
-type Message = { q?: string; t?: Turn; e?: string };
+type Message = { q?: string; t?: Turn; e?: string; createdAt: number; clinical?: boolean };
 type SessionPatient = { name: string; age?: number; gender?: string; language?: Language; conditions?: string[]; medications?: Array<{ name: string; dosage?: string; frequency?: string }>; labs?: Array<{ name: string; value?: string; unit?: string }> };
+type ClinicalReviewState = { reviewRequested: boolean; teleconsultationOffered: boolean; teleconsultationConfigured: boolean; messages: Array<{ speaker: 'PATIENT' | 'CLINICIAN'; text: string; createdAt: string }> };
 
 const token = import.meta.env.VITE_DEV_AUTH_TOKEN || "";
 
@@ -48,10 +49,14 @@ export default function Patient() {
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false),
     [patient, setPatient] = useState<SessionPatient | null>(null),
+    [clinicalReview, setClinicalReview] = useState<ClinicalReviewState | null>(null),
+    [teleconsultationNotice, setTeleconsultationNotice] = useState(''),
     [voiceOn, setVoiceOn] = useState(() => localStorage.vdaVoiceOn !== 'false');
 
   const audio = useRef<HTMLAudioElement | null>(null);
   const uploadInput = useRef<HTMLInputElement | null>(null);
+  const chatEnd = useRef<HTMLDivElement | null>(null);
+  const clinicalChatActive = Boolean(clinicalReview?.reviewRequested);
 
   useEffect(() => { localStorage.vdaVoiceOn = String(voiceOn); }, [voiceOn]);
 
@@ -74,6 +79,19 @@ export default function Patient() {
 
   useEffect(() => () => { audio.current?.pause(); }, []);
 
+  useEffect(() => { chatEnd.current?.scrollIntoView({ block: 'end', behavior: 'smooth' }); }, [list, clinicalReview, busy]);
+
+  useEffect(() => {
+    if (!sid || state !== 'ready') return;
+    let active = true;
+    const refresh = () => getClinicalReviewState(undefined, sid)
+      .then((next) => { if (active) setClinicalReview(next); })
+      .catch(() => { if (active) setClinicalReview(null); });
+    refresh();
+    const interval = window.setInterval(refresh, 4_000);
+    return () => { active = false; window.clearInterval(interval); };
+  }, [sid, state]);
+
   async function speak(text: string) {
     if (!text) return;
     try {
@@ -89,15 +107,27 @@ export default function Patient() {
 
   async function ask(q: string) {
     if (!q || busy) return;
-    setList((x) => [...x, { q }]);
+    const messageSentInClinicalChat = clinicalChatActive;
+    if (!messageSentInClinicalChat) setList((x) => [...x, { q, createdAt: Date.now() }]);
     setInput("");
     setBusy(true);
     try {
       const turn = await sendTurn(sid, undefined, q, lang);
-      setList((x) => [...x, { t: turn }]);
+      if (turn.response_type === 'escalation') {
+        setList((x) => [...x.map((message, index) => index === x.length - 1 && message.q === q ? { ...message, clinical: true } : message), { t: turn, createdAt: Date.now() }]);
+        void getClinicalReviewState(undefined, sid)
+          .then(setClinicalReview)
+          .catch(() => undefined);
+      } else if (turn.response_type === 'clinical-review') {
+        void getClinicalReviewState(undefined, sid)
+          .then(setClinicalReview)
+          .catch(() => undefined);
+      } else {
+        setList((x) => [...x, { t: turn, createdAt: Date.now() }]);
+      }
       const content: any = turn.content;
       const patientText = content.summary || content[lang] || content.en || content.hi || content.reason || content.text || '';
-      if (voiceOn) void speak(patientText);
+      if (voiceOn && turn.response_type !== 'clinical-review') void speak(patientText);
     } catch (error: unknown) {
       const apiError = error instanceof ApiError ? error : undefined;
       const safeMessage = apiError?.patientSafeMessage?.[lang];
@@ -109,6 +139,7 @@ export default function Patient() {
             (lang === "hi"
               ? "VDA सेवा अभी उपलब्ध नहीं है। कृपया थोड़ी देर बाद दोबारा प्रयास करें।"
               : "Unable to connect to VDA. Please try again."),
+          createdAt: Date.now(),
         },
       ]);
     } finally {
@@ -116,10 +147,26 @@ export default function Patient() {
     }
   }
 
+  async function requestTeleconsultation() {
+    if (!sid) return;
+    try {
+      const result = await requestClinicalReviewTeleconsultation(undefined, sid);
+      setTeleconsultationNotice(result.teleconsultationConfigured
+        ? ''
+        : lang === 'hi'
+          ? 'टेली-कंसल्टेशन इंटीग्रेशन अभी कॉन्फ़िगर नहीं है।'
+          : 'Teleconsultation integration is not configured yet.');
+    } catch {
+      setTeleconsultationNotice(lang === 'hi'
+        ? 'टेली-कंसल्टेशन विकल्प अभी उपलब्ध नहीं है।'
+        : 'Teleconsultation is not available at this time.');
+    }
+  }
+
   async function uploadPrescription(file: File) {
     if (!sid || !file || uploading) return;
     
-    setList((x) => [...x, { q: lang === 'hi' ? 'मैंने अपनी prescription upload की है।' : 'I have uploaded my prescription.' }]);
+    setList((x) => [...x, { q: lang === 'hi' ? 'मैंने अपनी prescription upload की है।' : 'I have uploaded my prescription.', createdAt: Date.now() }]);
     
     setUploading(true);
     setBusy(true);
@@ -134,7 +181,8 @@ export default function Patient() {
             summary: lang === 'hi' ? 'धन्यवाद। मैंने आपकी prescription पढ़ ली है:' : 'Thank you. I have read your prescription:',
             prescription: record
           }
-        } as Turn
+        } as Turn,
+        createdAt: Date.now(),
       }]);
     } catch (error: unknown) {
       const apiError = error instanceof ApiError ? error : undefined;
@@ -156,7 +204,7 @@ export default function Patient() {
             UNSUPPORTED_FILE: 'Please upload a supported PDF or Image file.',
             INVALID_FILE: 'The selected file is invalid or empty.',
           }[apiError?.code || 'UPLOAD_FAILED'] || 'Prescription upload failed. Please try again.'));
-      setList((x) => [...x, { e: message }]);
+      setList((x) => [...x, { e: message, createdAt: Date.now() }]);
     } finally {
       setUploading(false);
       setBusy(false);
@@ -188,6 +236,11 @@ export default function Patient() {
       </main>
     );
 
+  const timeline = [
+    ...list.filter((message) => !message.clinical).map((message, index) => ({ kind: 'normal' as const, at: message.createdAt, index, message })),
+    ...(clinicalReview?.messages || []).map((message, index) => ({ kind: 'clinical' as const, at: Date.parse(message.createdAt), index, message })),
+  ].sort((left, right) => left.at - right.at || left.index - right.index);
+
   return (
     <main className="patient">
       <section className="phone">
@@ -212,7 +265,7 @@ export default function Patient() {
           </div>
         </header>
 
-        <section className="patient-identity" aria-label="Selected synthetic patient">
+        <section className={`patient-identity ${clinicalChatActive ? 'clinical-chat-active' : ''}`} aria-label="Selected synthetic patient">
           <span aria-hidden="true" style={{ fontSize: '1.4rem' }}>👤 </span>
           <div>
             <b>{patient?.name}</b>
@@ -224,7 +277,9 @@ export default function Patient() {
           </em>
         </section>
 
-        <div className="messages">
+        {clinicalChatActive && <ClinicalChatBanner lang={lang} showTeleconsultation={Boolean(clinicalReview?.teleconsultationOffered)} notice={teleconsultationNotice} onTeleconsultation={requestTeleconsultation} />}
+
+        <div className={`messages ${clinicalChatActive ? 'clinical-chat-messages' : ''}`}>
           <article className="bubble">
             <p>
               {lang === "hi"
@@ -232,25 +287,26 @@ export default function Patient() {
                 : `Hello ${patient?.name || ''}. I am your VDA Health Assistant.${patient?.conditions?.length ? ` Your health record lists ${patient.conditions.join(', ')}.` : ''} I can help you understand your medicines, reports, prescriptions, adherence, government schemes, and nearby hospitals.`}
             </p>
           </article>
-          {list.map((m, i) => (
-            <MessageView key={i} m={m} lang={lang} onSpeak={speak} onAsk={ask} activeMeds={patient?.medications || []} />
-          ))}
+          {timeline.map((entry) => entry.kind === 'normal'
+            ? <MessageView key={`normal-${entry.index}`} m={entry.message} lang={lang} onSpeak={speak} onAsk={ask} activeMeds={patient?.medications || []} />
+            : <ClinicalMessageView key={`clinical-${entry.message.createdAt}-${entry.index}`} message={entry.message} lang={lang} />)}
           {busy && (
             <article className="bubble typing">
               {lang === 'hi' ? 'VDA उत्तर लिख रहा है...' : 'VDA is typing...'}
             </article>
           )}
+          <div ref={chatEnd} />
         </div>
 
-        <div className="quick">
+        {!clinicalChatActive && <div className="quick">
           {quick[lang].map((label) => (
             <button key={label} onClick={() => ask(quickQuery[label])}>
               {label}
             </button>
           ))}
-        </div>
+        </div>}
 
-        <section className="prescription-upload-compact">
+        {!clinicalChatActive && <section className="prescription-upload-compact">
           <div className="upload-info">
             <b>📄 {lang === 'hi' ? 'Prescription अपलोड करें' : 'Upload Prescription'}</b>
             <p>{lang === 'hi' ? 'दवाइयों और जांच की जानकारी समझने के लिए prescription अपलोड करें।' : 'Upload a prescription to understand medicines and tests.'}</p>
@@ -259,7 +315,7 @@ export default function Patient() {
           <button type="button" className="upload-btn" disabled={uploading} onClick={() => uploadInput.current?.click()}>
             {uploading ? (lang === 'hi' ? 'पढा जा रहा है...' : 'Reading...') : (lang === 'hi' ? '📄 Upload Prescription' : '📄 Upload Prescription')}
           </button>
-        </section>
+        </section>}
 
         <form
           className="composer"
@@ -268,14 +324,16 @@ export default function Patient() {
             ask(input);
           }}
         >
-          <button type="button" className="composer-attach-btn" disabled={uploading} onClick={() => uploadInput.current?.click()} title={lang === 'hi' ? 'Prescription अपलोड करें' : 'Upload prescription'}>
+          <button type="button" className="composer-attach-btn" disabled={uploading || clinicalChatActive} onClick={() => uploadInput.current?.click()} title={lang === 'hi' ? 'Prescription अपलोड करें' : 'Upload prescription'}>
             📎
           </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={
-              lang === "hi" ? "अपना प्रश्न यहाँ लिखें..." : "Type your question..."
+              clinicalChatActive
+                ? (lang === "hi" ? "क्लिनिकल टीम को अपना संदेश लिखें..." : "Write a message to the clinical team...")
+                : (lang === "hi" ? "अपना प्रश्न यहाँ लिखें..." : "Type your question...")
             }
           />
           <VoiceInput language={lang} token={token} disabled={busy} onTranscript={ask} />
@@ -286,6 +344,15 @@ export default function Patient() {
       </section>
     </main>
   );
+}
+
+function ClinicalChatBanner({ lang, showTeleconsultation, notice, onTeleconsultation }: { lang: Language; showTeleconsultation: boolean; notice: string; onTeleconsultation: () => void }) {
+  return <section className="clinical-chat-banner"><b>🩺 {lang === 'hi' ? 'क्लिनिकल टीम आपके संदेश की समीक्षा कर रही है' : 'Clinical Team is reviewing your message'}</b>{showTeleconsultation && <button className="action-chip" onClick={onTeleconsultation}>{lang === 'hi' ? 'टेली-कंसल्टेशन विकल्प' : 'Teleconsultation option'}</button>}{notice && <small>{notice}</small>}</section>;
+}
+
+function ClinicalMessageView({ message, lang }: { message: { speaker: 'PATIENT' | 'CLINICIAN'; text: string; createdAt: string }; lang: Language }) {
+  const clinician = message.speaker === 'CLINICIAN';
+  return <article className={`bubble clinical-message ${clinician ? 'clinical-team' : 'user me'}`}><b>{clinician ? `🩺 ${lang === 'hi' ? 'क्लिनिकल टीम' : 'Clinical Team'}` : (lang === 'hi' ? 'आप' : 'You')}</b><p>{message.text}</p><small>{new Date(message.createdAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</small></article>;
 }
 
 function MessageView({ m, lang, onSpeak, onAsk, activeMeds }: { m: Message; lang: Language; onSpeak: (t: string) => void; onAsk: (q: string) => void; activeMeds?: any[] }) {

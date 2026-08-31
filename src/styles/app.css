@@ -46,8 +46,8 @@ button {
   padding: 16px;
 }
 .phone {
-  width: min(100%, 480px);
-  height: min(90vh, 820px);
+  width: min(100%, 760px);
+  height: min(92vh, 900px);
   display: flex;
   flex-direction: column;
   background: #eee9df;
@@ -121,6 +121,27 @@ button {
   overflow: auto;
   padding: 16px;
 }
+.clinical-chat-messages { background: #f7fbf9; }
+.clinical-chat-banner {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 13px;
+  background: #e4f5ee;
+  border-bottom: 1px solid #b9dfce;
+  color: #10533f;
+  font-size: .82rem;
+}
+.clinical-chat-banner b { flex: 1; }
+.clinical-chat-banner small { display: block; color: #527066; }
+.clinical-chat-active { padding-block: 6px; }
+.clinical-chat-active p { display: none; }
+.clinical-message { background: #eef6ff; border: 1px solid #c9dff5; }
+.clinical-message.clinical-team { border-bottom-left-radius: 3px; }
+.clinical-message b { display: block; margin-bottom: 4px; color: #185a8b; font-size: .78rem; }
+.clinical-message.me { background: #d9f8e8; border: 1px solid #b7e6cb; }
+.clinical-message.me b { color: #176044; text-align: right; }
+.clinical-message small { display: block; margin-top: 5px; color: #61756c; font-size: .68rem; }
 .bubble {
   max-width: 84%;
   width: max-content;
@@ -196,6 +217,13 @@ button {
   padding: 8px;
   background: #f4f6f5;
 }
+.clinical-chat-transcript { display: grid; gap: 8px; max-height: 360px; overflow-y: auto; padding: 4px 0 10px; }
+.clinical-chat-turn { max-width: 88%; padding: 9px 11px; border-radius: 10px; background: #f2f8ff; border: 1px solid #d2e1f3; }
+.clinical-chat-turn.patient { margin-left: auto; background: #e7f8ed; border-color: #c9ead6; }
+.clinical-chat-turn b { display: block; color: #1d5c8d; font-size: .78rem; }
+.clinical-chat-turn.patient b { color: #176044; text-align: right; }
+.clinical-chat-turn p { margin: 4px 0; white-space: pre-line; }
+.clinical-chat-turn small { color: #61756c; font-size: .7rem; }
 .prescription-upload {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
