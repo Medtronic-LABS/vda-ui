@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Send } from "lucide-react";
 import { ApiError } from "../../api/client";
-import { getClinicalReviewState, getSessionPatientContext, requestClinicalReviewTeleconsultation, sendTurn, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
+import { getClinicalReviewState, getSessionPatientContext, sendTurn, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
 import type { Language, Turn } from "../../types/api";
 import { VoiceInput } from "./VoiceInput";
 
@@ -50,7 +50,6 @@ export default function Patient() {
     [uploading, setUploading] = useState(false),
     [patient, setPatient] = useState<SessionPatient | null>(null),
     [clinicalReview, setClinicalReview] = useState<ClinicalReviewState | null>(null),
-    [teleconsultationNotice, setTeleconsultationNotice] = useState(''),
     [voiceOn, setVoiceOn] = useState(() => localStorage.vdaVoiceOn !== 'false');
 
   const audio = useRef<HTMLAudioElement | null>(null);
@@ -144,22 +143,6 @@ export default function Patient() {
       ]);
     } finally {
       setBusy(false);
-    }
-  }
-
-  async function requestTeleconsultation() {
-    if (!sid) return;
-    try {
-      const result = await requestClinicalReviewTeleconsultation(undefined, sid);
-      setTeleconsultationNotice(result.teleconsultationConfigured
-        ? ''
-        : lang === 'hi'
-          ? 'टेली-कंसल्टेशन इंटीग्रेशन अभी कॉन्फ़िगर नहीं है।'
-          : 'Teleconsultation integration is not configured yet.');
-    } catch {
-      setTeleconsultationNotice(lang === 'hi'
-        ? 'टेली-कंसल्टेशन विकल्प अभी उपलब्ध नहीं है।'
-        : 'Teleconsultation is not available at this time.');
     }
   }
 
@@ -277,7 +260,7 @@ export default function Patient() {
           </em>
         </section>
 
-        {clinicalChatActive && <ClinicalChatBanner lang={lang} showTeleconsultation={Boolean(clinicalReview?.teleconsultationOffered)} notice={teleconsultationNotice} onTeleconsultation={requestTeleconsultation} />}
+        {clinicalChatActive && <ClinicalChatBanner lang={lang} showTeleconsultation={Boolean(clinicalReview?.teleconsultationOffered)} />}
 
         <div className={`messages ${clinicalChatActive ? 'clinical-chat-messages' : ''}`}>
           <article className="bubble">
@@ -346,8 +329,8 @@ export default function Patient() {
   );
 }
 
-function ClinicalChatBanner({ lang, showTeleconsultation, notice, onTeleconsultation }: { lang: Language; showTeleconsultation: boolean; notice: string; onTeleconsultation: () => void }) {
-  return <section className="clinical-chat-banner"><b>🩺 {lang === 'hi' ? 'क्लिनिकल टीम आपके संदेश की समीक्षा कर रही है' : 'Clinical Team is reviewing your message'}</b>{showTeleconsultation && <button className="action-chip" onClick={onTeleconsultation}>{lang === 'hi' ? 'टेली-कंसल्टेशन विकल्प' : 'Teleconsultation option'}</button>}{notice && <small>{notice}</small>}</section>;
+function ClinicalChatBanner({ lang, showTeleconsultation }: { lang: Language; showTeleconsultation: boolean }) {
+  return <section className="clinical-chat-banner"><b>🩺 {lang === 'hi' ? 'क्लिनिकल टीम आपके संदेश की समीक्षा कर रही है' : 'Clinical Team is reviewing your message'}</b>{showTeleconsultation && <a className="action-chip" href="https://esanjeevani.mohfw.gov.in/" target="_blank" rel="noreferrer">{lang === 'hi' ? 'eSanjeevani पर बात करें' : 'Use eSanjeevani'}</a>}</section>;
 }
 
 function ClinicalMessageView({ message, lang }: { message: { speaker: 'PATIENT' | 'CLINICIAN'; text: string; createdAt: string }; lang: Language }) {
