@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Send } from "lucide-react";
 import { ApiError } from "../../api/client";
-import { getClinicalReviewState, getSessionPatientContext, sendTurn, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
+import { getClinicalReviewState, getSessionPatientContext, listLocalPrototypePatients, sendTurn, startLocalPrototypeSession, synthesizeVoice, uploadSessionPrescription } from "../../api/vda";
 import type { Language, Turn } from "../../types/api";
 import { VoiceInput } from "./VoiceInput";
 
 type Message = { q?: string; t?: Turn; e?: string; createdAt: number; clinical?: boolean };
-type SessionPatient = { name: string; age?: number; gender?: string; language?: Language; conditions?: string[]; medications?: Array<{ name: string; dosage?: string; frequency?: string }>; labs?: Array<{ name: string; value?: string; unit?: string }> };
+type SessionPatient = { name: string; age?: number; gender?: string; language?: Language; dataSource?: 'local-file' | 'synthetic'; conditions?: string[]; medications?: Array<{ name: string; dosage?: string; frequency?: string }>; labs?: Array<{ name: string; value?: string; unit?: string }> };
+type PatientChoice = { id: string; name: string; age?: number; gender?: string; language?: Language; state?: string; district?: string };
 type ClinicalReviewState = { reviewRequested: boolean; teleconsultationOffered: boolean; teleconsultationConfigured: boolean; messages: Array<{ speaker: 'PATIENT' | 'CLINICIAN'; text: string; createdAt: string }> };
 
 const token = import.meta.env.VITE_DEV_AUTH_TOKEN || "";
@@ -48,6 +49,9 @@ export default function Patient() {
     [input, setInput] = useState(""),
     [busy, setBusy] = useState(false),
     [uploading, setUploading] = useState(false),
+    [choices, setChoices] = useState<PatientChoice[]>([]),
+    [choiceId, setChoiceId] = useState(''),
+    [selectionError, setSelectionError] = useState(''),
     [patient, setPatient] = useState<SessionPatient | null>(null),
     [clinicalReview, setClinicalReview] = useState<ClinicalReviewState | null>(null),
     [voiceOn, setVoiceOn] = useState(() => localStorage.vdaVoiceOn !== 'false');
@@ -58,6 +62,20 @@ export default function Patient() {
   const clinicalChatActive = Boolean(clinicalReview?.reviewRequested);
 
   useEffect(() => { localStorage.vdaVoiceOn = String(voiceOn); }, [voiceOn]);
+
+  useEffect(() => {
+    if (selectedSessionId) return;
+    let active = true;
+    setSelectionError('');
+    listLocalPrototypePatients()
+      .then((items) => {
+        if (!active) return;
+        setChoices(items);
+        if (items[0]) setChoiceId(items[0].id);
+      })
+      .catch(() => { if (active) setSelectionError('Local patient data could not be loaded.'); });
+    return () => { active = false; };
+  }, [selectedSessionId]);
 
   useEffect(() => {
     let active = true;
@@ -83,13 +101,21 @@ export default function Patient() {
   useEffect(() => {
     if (!sid || state !== 'ready') return;
     let active = true;
+    getClinicalReviewState(undefined, sid)
+      .then((next) => { if (active) setClinicalReview(next); })
+      .catch(() => { if (active) setClinicalReview(null); });
+    return () => { active = false; };
+  }, [sid, state]);
+
+  useEffect(() => {
+    if (!sid || state !== 'ready' || !clinicalReview?.reviewRequested) return;
+    let active = true;
     const refresh = () => getClinicalReviewState(undefined, sid)
       .then((next) => { if (active) setClinicalReview(next); })
       .catch(() => { if (active) setClinicalReview(null); });
-    refresh();
     const interval = window.setInterval(refresh, 4_000);
     return () => { active = false; window.clearInterval(interval); };
-  }, [sid, state]);
+  }, [sid, state, clinicalReview?.reviewRequested]);
 
   async function speak(text: string) {
     if (!text) return;
@@ -125,7 +151,7 @@ export default function Patient() {
         setList((x) => [...x, { t: turn, createdAt: Date.now() }]);
       }
       const content: any = turn.content;
-      const patientText = content.summary || content[lang] || content.en || content.hi || content.reason || content.text || '';
+      const patientText = content.patient_text || content[lang] || content.en || content.hi || content.summary || content.reason || content.text || '';
       if (voiceOn && turn.response_type !== 'clinical-review') void speak(patientText);
     } catch (error: unknown) {
       const apiError = error instanceof ApiError ? error : undefined;
@@ -142,6 +168,19 @@ export default function Patient() {
         },
       ]);
     } finally {
+      setBusy(false);
+    }
+  }
+
+  async function startSelectedPatient() {
+    if (!choiceId || busy) return;
+    setBusy(true);
+    setSelectionError('');
+    try {
+      const session = await startLocalPrototypeSession(undefined, choiceId);
+      navigate(`/vda/session/${session.session_id}`);
+    } catch {
+      setSelectionError('Unable to start a VDA session for the selected patient.');
       setBusy(false);
     }
   }
@@ -202,16 +241,23 @@ export default function Patient() {
           {state === 'select' && (
             <>
               <h1>VDA Health</h1>
-              <p>Please select a synthetic patient to start a conversation session.</p>
-              <button onClick={() => navigate('/admin/patients')}>Select Synthetic Patient</button>
-              <small style={{ marginTop: '12px', display: 'block', color: '#64748b' }}>DEVELOPMENT / SYNTHETIC DATA — NOT REAL PATIENT DATA</small>
+              <p>Select a local prototype patient to start a separate VDA session.</p>
+              {choices.length > 0 ? <>
+                <label htmlFor="patient-selection">Patient</label>
+                <select id="patient-selection" value={choiceId} onChange={(event) => setChoiceId(event.target.value)}>
+                  {choices.map((choice) => <option key={choice.id} value={choice.id}>{[choice.name, choice.age ? `Age ${choice.age}` : '', choice.gender, choice.district, choice.state].filter(Boolean).join(' • ')}</option>)}
+                </select>
+                <button disabled={!choiceId || busy} onClick={() => void startSelectedPatient()}>{busy ? 'Starting…' : 'Continue'}</button>
+              </> : <p>{selectionError || 'No local prototype patients are available.'}</p>}
+              {selectionError && choices.length > 0 && <p role="alert">{selectionError}</p>}
+              <small style={{ marginTop: '12px', display: 'block', color: '#64748b' }}>LOCAL PROTOTYPE DATA — DEMO ONLY</small>
             </>
           )}
           {state === 'error' && (
             <>
               <p>{lang === 'hi' ? 'सत्र लोड करने में असमर्थ।' : 'Unable to load session.'}</p>
-              <button onClick={() => navigate('/admin/patients')}>
-                {lang === 'hi' ? 'Synthetic Patients पर वापस जाएँ' : 'Back to Synthetic Patients'}
+              <button onClick={() => navigate('/vda')}>
+                {lang === 'hi' ? 'रोगी चयन पर वापस जाएँ' : 'Back to patient selection'}
               </button>
             </>
           )}
@@ -248,7 +294,7 @@ export default function Patient() {
           </div>
         </header>
 
-        <section className={`patient-identity ${clinicalChatActive ? 'clinical-chat-active' : ''}`} aria-label="Selected synthetic patient">
+        <section className={`patient-identity ${clinicalChatActive ? 'clinical-chat-active' : ''}`} aria-label="Selected patient">
           <span aria-hidden="true" style={{ fontSize: '1.4rem' }}>👤 </span>
           <div>
             <b>{patient?.name}</b>
@@ -256,7 +302,7 @@ export default function Patient() {
             <p>{patient?.conditions?.length ? patient.conditions.join(' • ') : 'No conditions recorded.'}</p>
           </div>
           <em style={{ background: '#0284c7', color: '#fff', padding: '2px 8px', borderRadius: '4px', fontStyle: 'normal', fontSize: '0.7rem', fontWeight: 600 }}>
-            DEVELOPMENT / SYNTHETIC PATIENT
+            {patient?.dataSource === 'local-file' ? 'LOCAL PROTOTYPE PATIENT' : 'DEVELOPMENT / SYNTHETIC PATIENT'}
           </em>
         </section>
 
@@ -350,6 +396,19 @@ function MessageView({ m, lang, onSpeak, onAsk, activeMeds }: { m: Message; lang
   return (
     <article className="bubble assistant">
       {text && <p>{text}</p>}
+      {content.sections?.length > 0 && (
+        <div className="response-sections">
+          {content.sections.map((section: any, idx: number) => (
+            <section className="response-section" key={idx}>
+              {section.title && <b>{section.title}</b>}
+              {section.body && <p>{section.body}</p>}
+              {section.bullets?.length > 0 && (
+                <ul>{section.bullets.map((bullet: string, bulletIndex: number) => <li key={bulletIndex}>{bullet}</li>)}</ul>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
       {prescription && <PrescriptionSummary record={prescription} lang={lang} onAsk={onAsk} activeMeds={activeMeds} />}
       {content.cards?.length > 0 && (
         <div className="cards-grid">

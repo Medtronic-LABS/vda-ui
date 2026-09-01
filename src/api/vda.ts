@@ -8,6 +8,8 @@ export const getKnowledgeDocument=(token:string|undefined,id:string)=>api<any>(`
 export const uploadKnowledgeDocument=(token:string|undefined,fields:Record<string,string>,file:File)=>{const body=new FormData();Object.entries(fields).forEach(([key,value])=>body.append(key,value));body.append('file',file);return api<any>('/admin/knowledge/documents',token,{method:'POST',body});};
 export const health=(token:string|undefined,path:string)=>api<any>(`/health/${path}`,token);
 export const listSyntheticPatients=(token?:string)=>api<any[]>('/dev/demo/patients',token);
+export const listLocalPrototypePatients=(token?:string)=>api<any[]>('/dev/demo/patient-selection',token);
+export const startLocalPrototypeSession=(token:string|undefined,id:string)=>api<any>(`/dev/demo/patient-selection/${encodeURIComponent(id)}/session`,token,{method:'POST'});
 export const createSyntheticPatient=(token:string|undefined,body:any)=>api<any>('/dev/demo/patients',token,{method:'POST',body:JSON.stringify(body)});
 export const updateSyntheticPatient=(token:string|undefined,id:string,body:any)=>api<any>(`/dev/demo/patients/${id}`,token,{method:'PATCH',body:JSON.stringify(body)});
 export const deleteSyntheticPatient=(token:string|undefined,id:string)=>api(`/dev/demo/patients/${id}`,token,{method:'DELETE'});
