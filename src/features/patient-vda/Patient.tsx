@@ -9,9 +9,8 @@ import { VoiceInput } from "./VoiceInput";
 type Message = { q?: string; t?: Turn; e?: string; createdAt: number; clinical?: boolean };
 type SessionPatient = { name: string; age?: number; gender?: string; language?: Language; dataSource?: 'local-file' | 'synthetic'; conditions?: string[]; medications?: Array<{ name: string; dosage?: string; frequency?: string }>; labs?: Array<{ name: string; value?: string; unit?: string }> };
 type PatientChoice = { id: string; name: string; age?: number; gender?: string; language?: Language; state?: string; district?: string };
-type ClinicalReviewState = { reviewRequested: boolean; teleconsultationOffered: boolean; teleconsultationConfigured: boolean; messages: Array<{ speaker: 'PATIENT' | 'CLINICIAN'; text: string; createdAt: string }> };
-
 const token = import.meta.env.VITE_DEV_AUTH_TOKEN || "";
+type ClinicalReviewState = { reviewRequested: boolean; teleconsultationOffered: boolean; teleconsultationConfigured: boolean; messages: Array<{ speaker: 'PATIENT' | 'CLINICIAN'; text: string; createdAt: string }> };
 
 const quick: Record<Language, string[]> = {
   hi: [
@@ -416,7 +415,12 @@ function MessageView({ m, lang, onSpeak, onAsk, activeMeds }: { m: Message; lang
             <div key={idx} className="card-item">
               <b>{c.title}</b>
               <p>{c.value}</p>
-              <small>{c.subtitle}</small>
+              {String(c.subtitle || '')
+                .split('\n')
+                .filter(Boolean)
+                .map((line, lineIndex) => (
+                  <small key={lineIndex}>{line}</small>
+                ))}
             </div>
           ))}
         </div>
