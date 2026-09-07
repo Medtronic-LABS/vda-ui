@@ -1,5 +1,4 @@
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   createSyntheticPatient,
   deleteSyntheticPatient,
@@ -7,7 +6,6 @@ import {
   listPatientMedications,
   listPrescriptions,
   listSyntheticPatients,
-  startSyntheticSession,
   updateSyntheticPatient,
 } from '../api/vda';
 
@@ -58,7 +56,6 @@ export default function SyntheticPatients() {
   const [selected, setSelected] = useState<any | null>(null);
   const [details, setDetails] = useState<{ medications: any[]; prescriptions: any[]; adherence: any[] } | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
-  const navigate = useNavigate();
 
   const load = () => {
     setLoading(true);
@@ -251,15 +248,8 @@ export default function SyntheticPatients() {
                     <b>Latest lab:</b> {summary.latestLab ? `${summary.latestLab.name}: ${[summary.latestLab.value, summary.latestLab.unit].filter(Boolean).join(' ')}` : 'No lab results recorded.'}
                   </p>
                   <div className="patient-card-actions">
-                    <button
-                      onClick={() =>
-                        startSyntheticSession(undefined, p.id)
-                          .then((s) => navigate(`/vda/session/${s.session_id}`))
-                          .catch((e) => setError('Could not start VDA session for patient.'))
-                      }
-                    >
-                      Start VDA
-                    </button>
+                    {/* Temporarily disabled: Admin/frontend VDA chat UI.
+                        Implementation retained for future use. */}
                     <button className="secondary" onClick={() => view(p)}>
                       View
                     </button>

@@ -1,7 +1,9 @@
 import { Activity, BookOpen, HeartPulse, ShieldAlert } from 'lucide-react';
 import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState } from 'react';
-import Patient from './features/patient-vda/Patient';
+// Temporarily disabled: Admin/frontend VDA chat UI.
+// Implementation retained for future use.
+// import Patient from './features/patient-vda/Patient';
 import Knowledge from './features/knowledge/Knowledge';
 import { Agents, Conversations, Dashboard, Health, RagQuality, Search } from './pages/AdminPages';
 import Facilities from './pages/Facilities';
@@ -12,7 +14,7 @@ import Prescriptions from './pages/Prescriptions';
 import ClinicalEscalations from './pages/ClinicalEscalations';
 import { getOpenClinicalEscalationCount } from './api/vda';
 
-const Landing = () => { const navigate = useNavigate(); return <main className="landing"><HeartPulse size={45}/><h1>VDA Health</h1><p>Choose a local development experience.</p><button onClick={() => navigate('/vda')}>Open Patient VDA</button><button className="secondary" onClick={() => navigate('/admin/dashboard')}>Open Admin Dashboard</button></main>; };
+const Landing = () => { const navigate = useNavigate(); return <main className="landing"><HeartPulse size={45}/><h1>VDA Health</h1><p>Open the administration workspace.</p><button className="secondary" onClick={() => navigate('/admin/dashboard')}>Open Admin Dashboard</button></main>; };
 function EscalationNav(){const [open,setOpen]=useState<number | null>(null); const inFlight=useRef(false); useEffect(()=>{let active=true; const refresh=async()=>{if(inFlight.current)return;inFlight.current=true;try{const result=await getOpenClinicalEscalationCount();if(active)setOpen(result.open);}catch{if(active)setOpen(null);}finally{inFlight.current=false;}};void refresh();const interval=window.setInterval(()=>void refresh(),4_000);return()=>{active=false;window.clearInterval(interval);};},[]); return <NavLink to="/admin/escalations"><ShieldAlert/>Clinical Escalations {open !== null && open > 0 && <span className="nav-badge">{open}</span>}</NavLink>}
 function Admin(){return <main className="admin"><aside><h2>VDA <small>ADMIN</small></h2><NavLink to="/admin/dashboard"><Activity/>Dashboard</NavLink><NavLink to="/admin/knowledge"><BookOpen/>Knowledge</NavLink><NavLink to="/admin/patients"><HeartPulse/>Synthetic Patients</NavLink><EscalationNav/><NavLink to="/admin/rag-quality"><Activity/>RAG Quality</NavLink></aside><section className="admin-main"><Routes><Route path="dashboard" element={<Dashboard/>}/><Route path="knowledge" element={<Knowledge/>}/><Route path="knowledge/:id" element={<Knowledge/>}/><Route path="knowledge/search" element={<Search/>}/><Route path="rag-quality" element={<RagQuality/>}/><Route path="agents" element={<Agents/>}/><Route path="patients" element={<SyntheticPatients/>}/><Route path="escalations" element={<ClinicalEscalations/>}/><Route path="prescriptions" element={<Prescriptions/>}/><Route path="medications" element={<Medications/>}/><Route path="adherence" element={<Medications/>}/><Route path="facilities" element={<Facilities/>}/><Route path="schemes" element={<Schemes/>}/><Route path="conversations" element={<Conversations/>}/><Route path="health" element={<Health/>}/></Routes></section></main>}
-export default function App(){return <Routes><Route path="/" element={<Landing/>}/><Route path="/vda" element={<Patient/>}/><Route path="/vda/chat" element={<Patient/>}/><Route path="/vda/session/:sessionId" element={<Patient/>}/><Route path="/admin/*" element={<Admin/>}/></Routes>}
+export default function App(){return <Routes><Route path="/" element={<Landing/>}/>{/* Temporarily disabled: Admin/frontend VDA chat UI. Implementation retained for future use. <Route path="/vda" element={<Patient/>}/><Route path="/vda/chat" element={<Patient/>}/><Route path="/vda/session/:sessionId" element={<Patient/>}/> */}<Route path="/admin/*" element={<Admin/>}/></Routes>}
