@@ -22,6 +22,17 @@ export async function getDevToken(): Promise<string> {
   return "";
 }
 
+export function generateUUID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -46,7 +57,7 @@ export async function api<T>(
   if (authToken) {
     headers.set("Authorization", `Bearer ${authToken}`);
   }
-  headers.set("X-Correlation-Id", crypto.randomUUID());
+  headers.set("X-Correlation-Id", generateUUID());
   if (!(init.body instanceof FormData) && init.body)
     headers.set("Content-Type", "application/json");
   const r = await fetch(base + path, { ...init, headers });

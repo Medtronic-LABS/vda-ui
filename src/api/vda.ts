@@ -1,5 +1,5 @@
-import { api, base } from './client'; import type {Document,Turn} from '../types/api';
-export const sendTurn=(id:string,token:string|undefined,input_text:string,language:string)=>api<Turn>(`/sessions/${id}/turns`,token,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({input_text,speaker:'self',language})});
+import { api, base, generateUUID } from './client'; import type {Document,Turn} from '../types/api';
+export const sendTurn=(id:string,token:string|undefined,input_text:string,language:string)=>api<Turn>(`/sessions/${id}/turns`,token,{method:'POST',headers:{'Idempotency-Key':generateUUID()},body:JSON.stringify({input_text,speaker:'self',language})});
 export const closeSession=(id:string,token?:string)=>api<void>(`/sessions/${id}/close`,token,{method:'POST'});
 export const listDocs=(token?:string)=>api<Document[]>('/admin/knowledge/documents',token);
 export const searchKnowledge=(token:string|undefined,q:string)=>api<any>(`/admin/knowledge/search?query=${encodeURIComponent(q)}`,token);
@@ -33,8 +33,8 @@ export const getClinicalEscalation=(token:string|undefined,id:string)=>api<any>(
 export const getOpenClinicalEscalationCount=(token?:string)=>api<{open:number}>('/admin/escalations/open-count',token);
 export const reviewClinicalEscalation=(token:string|undefined,id:string,body:{outcome:'TRUE_POSITIVE'|'FALSE_POSITIVE'|'ANNOTATED';note?:string})=>api<any>(`/admin/escalations/${id}/review`,token,{method:'PATCH',body:JSON.stringify(body)});
 export const reviewClinicalResponse=(token:string|undefined,id:string,body:{decision:'APPROVED'|'CORRECTED'|'ANNOTATED';note?:string;correctedResponse?:string})=>api<any>(`/admin/escalations/${id}/response-review`,token,{method:'PATCH',body:JSON.stringify(body)});
-export const sendClinicianMessage=(token:string|undefined,id:string,message:string,idempotencyKey=crypto.randomUUID())=>api<any>(`/admin/escalations/${id}/messages`,token,{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify({message})});
-export const endClinicalChat=(token:string|undefined,id:string,idempotencyKey=crypto.randomUUID())=>api<any>(`/admin/escalations/${id}/end-clinical-chat`,token,{method:'POST',headers:{'Idempotency-Key':idempotencyKey}});
+export const sendClinicianMessage=(token:string|undefined,id:string,message:string,idempotencyKey=generateUUID())=>api<any>(`/admin/escalations/${id}/messages`,token,{method:'POST',headers:{'Idempotency-Key':idempotencyKey},body:JSON.stringify({message})});
+export const endClinicalChat=(token:string|undefined,id:string,idempotencyKey=generateUUID())=>api<any>(`/admin/escalations/${id}/end-clinical-chat`,token,{method:'POST',headers:{'Idempotency-Key':idempotencyKey}});
 export const listPrescriptions=(token:string|undefined,patientId:string)=>api<any[]>(`/dev/demo/patients/${patientId}/prescriptions`,token);
 export const approvePrescription=(token:string|undefined,patientId:string,id:string)=>api<any>(`/dev/demo/patients/${patientId}/prescriptions/${id}/approve`,token,{method:'POST'});
 export const uploadPrescription=(token:string|undefined,patientId:string,file:File)=>{const body=new FormData();body.append('file',file);return api<any>(`/dev/demo/patients/${patientId}/prescriptions`,token,{method:'POST',body});};
@@ -42,7 +42,7 @@ export const uploadSessionPrescription=(token:string|undefined,sessionId:string,
 const voiceRequest = async (path: string, token: string | undefined, init: RequestInit) => {
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
-  headers.set('X-Correlation-Id', crypto.randomUUID());
+  headers.set('X-Correlation-Id', generateUUID());
   const response = await fetch(base + path, { ...init, headers });
   if (!response.ok) throw new Error('Voice service unavailable');
   return response;
