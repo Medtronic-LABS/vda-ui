@@ -19,7 +19,7 @@ export async function getDevToken(): Promise<string> {
   } catch (err) {
     // Ignore fetch failure
   }
-  return "";
+  return (import.meta as any).env?.VITE_DEV_AUTH_TOKEN || "dev-token";
 }
 
 export function generateUUID(): string {
