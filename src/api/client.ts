@@ -18,6 +18,12 @@ function canUseLocalDevelopmentAuth(): boolean {
 }
 
 export async function getDevToken(): Promise<string> {
+  if (typeof window !== "undefined" && window.sessionStorage?.vdaToken) {
+    return window.sessionStorage.vdaToken;
+  }
+  if (import.meta.env.VITE_DEV_AUTH_TOKEN) {
+    return import.meta.env.VITE_DEV_AUTH_TOKEN;
+  }
   // Never request a privileged development credential from a network-accessible UI/API.
   if (!canUseLocalDevelopmentAuth()) {
     return "";
