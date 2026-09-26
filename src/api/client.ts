@@ -3,7 +3,25 @@ const base =
 
 let cachedDevToken: string | null = null;
 
+function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  return normalized === "localhost" || normalized === "127.0.0.1" || normalized === "::1";
+}
+
+function canUseLocalDevelopmentAuth(): boolean {
+  if (!import.meta.env.DEV || typeof window === "undefined") return false;
+  try {
+    return isLoopbackHost(window.location.hostname) && isLoopbackHost(new URL(base).hostname);
+  } catch {
+    return false;
+  }
+}
+
 export async function getDevToken(): Promise<string> {
+  // Never request a privileged development credential from a network-accessible UI/API.
+  if (!canUseLocalDevelopmentAuth()) {
+    return "";
+  }
   if (cachedDevToken) {
     return cachedDevToken;
   }

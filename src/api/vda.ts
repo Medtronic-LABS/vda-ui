@@ -1,4 +1,4 @@
-import { api, base } from './client'; import type {Document,Turn} from '../types/api';
+import { api, base, getDevToken } from './client'; import type {Document,Turn} from '../types/api';
 export const sendTurn=(id:string,token:string|undefined,input_text:string,language:string)=>api<Turn>(`/sessions/${id}/turns`,token,{method:'POST',headers:{'Idempotency-Key':crypto.randomUUID()},body:JSON.stringify({input_text,speaker:'self',language})});
 export const closeSession=(id:string,token?:string)=>api<void>(`/sessions/${id}/close`,token,{method:'POST'});
 export const listDocs=(token?:string)=>api<Document[]>('/admin/knowledge/documents',token);
@@ -39,6 +39,12 @@ export const listPrescriptions=(token:string|undefined,patientId:string)=>api<an
 export const approvePrescription=(token:string|undefined,patientId:string,id:string)=>api<any>(`/dev/demo/patients/${patientId}/prescriptions/${id}/approve`,token,{method:'POST'});
 export const uploadPrescription=(token:string|undefined,patientId:string,file:File)=>{const body=new FormData();body.append('file',file);return api<any>(`/dev/demo/patients/${patientId}/prescriptions`,token,{method:'POST',body});};
 export const uploadSessionPrescription=(token:string|undefined,sessionId:string,file:File)=>{const body=new FormData();body.append('file',file);return api<any>(`/sessions/${sessionId}/prescriptions`,token,{method:'POST',body});};
+export const listPrescriptionWorklist=(token:string|undefined,status?:string)=>api<any[]>(`/admin/prescriptions${status?`?status=${encodeURIComponent(status)}`:''}`,token);
+export const getPrescriptionReview=(token:string|undefined,id:string)=>api<any>(`/admin/prescriptions/${id}`,token);
+export const verifyPrescription=(token:string|undefined,id:string,body:any)=>api<any>(`/admin/prescriptions/${id}/verify`,token,{method:'POST',body:JSON.stringify(body)});
+export const rejectPrescription=(token:string|undefined,id:string,reason:string,note?:string)=>api<any>(`/admin/prescriptions/${id}/reject`,token,{method:'POST',body:JSON.stringify({reason,note:note?.trim()||undefined})});
+export const requestClearerPrescription=(token:string|undefined,id:string,reason:string,note?:string)=>api<any>(`/admin/prescriptions/${id}/request-clearer-image`,token,{method:'POST',body:JSON.stringify({reason,note:note?.trim()||undefined})});
+export const getPrescriptionSource=async(token:string|undefined,id:string)=>{const auth=token||await getDevToken();const response=await fetch(`${base}/admin/prescriptions/${id}/source`,{headers:{Authorization:`Bearer ${auth}`,'X-Correlation-Id':crypto.randomUUID()}});if(!response.ok)throw new Error(`Source unavailable (${response.status})`);return response.blob();};
 const voiceRequest = async (path: string, token: string | undefined, init: RequestInit) => {
   const headers = new Headers(init.headers);
   if (token) headers.set('Authorization', `Bearer ${token}`);
