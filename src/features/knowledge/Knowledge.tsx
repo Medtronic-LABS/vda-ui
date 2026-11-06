@@ -47,7 +47,7 @@ export default function Knowledge() {
 
   return (
     <>
-      <h1>Knowledge Base</h1>
+      <h1>Knowledge</h1>
       {error && (
         <section className="panel">
           <p style={{ color: '#ef4444' }}>{error}</p>
@@ -55,7 +55,7 @@ export default function Knowledge() {
       )}
 
       <section className="panel">
-        <h2>Upload knowledge for governed review</h2>
+        <h2>Upload</h2>
         <form onSubmit={upload}>
           <input
             required
@@ -87,13 +87,13 @@ export default function Knowledge() {
             accept=".pdf,.docx,.txt,.md,.json,.csv"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
-          <button disabled={!file}>Upload & process review</button>
+          <button disabled={!file}>Upload</button>
         </form>
-        <p>Uploads remain lifecycle-controlled and are never activated automatically.</p>
+        <p>New documents are used only after you approve them.</p>
       </section>
 
       <section className="panel">
-        <h2>Lifecycle-controlled documents</h2>
+        <h2>Documents</h2>
         {loading ? (
           <p>Loading knowledge documents...</p>
         ) : !docs.length ? (

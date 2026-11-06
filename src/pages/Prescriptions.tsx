@@ -34,10 +34,10 @@ type StatusTab = {
 };
 
 const STATUS_TABS: StatusTab[] = [
-  { id: 'PENDING_REVIEW', label: 'Pending Review' },
-  { id: 'VERIFIED', label: 'Approved (Active)' },
-  { id: 'FLAGGED_DECLINED', label: 'Flagged / Declined' },
-  { id: 'ALL', label: 'All Prescriptions' },
+  { id: 'PENDING_REVIEW', label: 'To review' },
+  { id: 'VERIFIED', label: 'Approved' },
+  { id: 'FLAGGED_DECLINED', label: 'Declined' },
+  { id: 'ALL', label: 'All' },
 ];
 
 const EMPTY_MEDICINE = {
@@ -354,11 +354,11 @@ export default function Prescriptions() {
     };
     for (const row of allRows) {
       const st = String(row.verificationStatus || '');
-      if (st === 'PENDING_VERIFICATION') {
+      if (st === 'PENDING_VERIFICATION' || st === 'UNVERIFIED') {
         counts.PENDING_REVIEW += 1;
       } else if (st === 'VERIFIED') {
         counts.VERIFIED += 1;
-      } else if (st === 'UNVERIFIED' || st === 'REJECTED' || st === 'NEEDS_RESUBMISSION') {
+      } else if (st === 'REJECTED' || st === 'NEEDS_RESUBMISSION') {
         counts.FLAGGED_DECLINED += 1;
       }
     }
@@ -400,7 +400,10 @@ export default function Prescriptions() {
   const statusFilteredRows = useMemo(() => {
     if (statusFilter === 'ALL') return enrichedRows;
     if (statusFilter === 'PENDING_REVIEW') {
-      return enrichedRows.filter((row) => row.verificationStatus === 'PENDING_VERIFICATION');
+      // Low-OCR uploads still need the doctor's decision, so they sit in the review queue.
+      return enrichedRows.filter(
+        (row) => row.verificationStatus === 'PENDING_VERIFICATION' || row.verificationStatus === 'UNVERIFIED',
+      );
     }
     if (statusFilter === 'VERIFIED') {
       return enrichedRows.filter((row) => row.verificationStatus === 'VERIFIED');
@@ -408,7 +411,6 @@ export default function Prescriptions() {
     if (statusFilter === 'FLAGGED_DECLINED') {
       return enrichedRows.filter(
         (row) =>
-          row.verificationStatus === 'UNVERIFIED' ||
           row.verificationStatus === 'REJECTED' ||
           row.verificationStatus === 'NEEDS_RESUBMISSION',
       );
@@ -493,14 +495,7 @@ export default function Prescriptions() {
   return (
     <div className="rx-page">
       <header className="rx-page-header">
-        <div>
-          <p className="eyebrow">CLINICAL GOVERNANCE & MEDICATION SAFETY</p>
-          <h1>Patient Prescription Verification</h1>
-          <p>
-            Review patient demographics, compare multi-prescription history, and verify AI-extracted regimens before
-            activating patient reminders.
-          </p>
-        </div>
+        <h1>Prescriptions</h1>
         <div className="rx-header-actions">
           <div className="rx-view-toggle" role="group" aria-label="Queue grouping">
             <button
@@ -509,7 +504,7 @@ export default function Prescriptions() {
               onClick={() => setViewMode('GROUPED_BY_PATIENT')}
             >
               <Layers size={15} />
-              <span>Grouped by Patient</span>
+              <span>By patient</span>
             </button>
             <button
               type="button"
@@ -517,12 +512,12 @@ export default function Prescriptions() {
               onClick={() => setViewMode('CHRONOLOGICAL')}
             >
               <Clock size={15} />
-              <span>All Submissions</span>
+              <span>Latest first</span>
             </button>
           </div>
           <button type="button" className="secondary rx-refresh-btn" onClick={() => void refresh()}>
             <RefreshCw size={15} />
-            <span>Refresh Queue</span>
+            <span>Refresh</span>
           </button>
         </div>
       </header>
@@ -553,15 +548,9 @@ export default function Prescriptions() {
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by Patient Name, Phone (+91...), District, ABHA ID, Doctor, Medicine, or RX Code..."
+              placeholder="Search name, phone, district, medicine or Rx code"
+              aria-label="Search prescriptions"
             />
-          </div>
-          <div className="rx-queue-summary">
-            <span>
-              Showing <strong>{filteredRows.length}</strong> of <strong>{allRows.length}</strong> prescription
-              {allRows.length === 1 ? '' : 's'} across <strong>{patientGroups.length}</strong> patient
-              {patientGroups.length === 1 ? '' : 's'}
-            </span>
           </div>
         </div>
 
@@ -582,7 +571,7 @@ export default function Prescriptions() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <Bell size={18} />
               <span>
-                <strong>New Prescription Uploaded — Awaiting Medical Officer Review:</strong>{' '}
+                <strong>New prescription:</strong>{' '}
                 {extractPatientSummary(newUploadAlert).fullName} ({formatPrescriptionCode(newUploadAlert)})
               </span>
             </div>
@@ -594,13 +583,11 @@ export default function Prescriptions() {
                 onClick={() => {
                   const alertRow = newUploadAlert;
                   setNewUploadAlert(null);
-                  setStatusFilter(
-                    alertRow.verificationStatus === 'UNVERIFIED' ? 'FLAGGED_DECLINED' : 'PENDING_REVIEW',
-                  );
+                  setStatusFilter('PENDING_REVIEW');
                   void openPrescription(alertRow.id);
                 }}
               >
-                Review Now
+                Review
               </button>
               <button
                 type="button"
@@ -624,20 +611,10 @@ export default function Prescriptions() {
       <div className="rx-workspace-grid">
         {/* LEFT COLUMN: PATIENT & PRESCRIPTION WORKLIST */}
         <aside className="rx-queue-column">
-          <div className="rx-column-header">
-            <h2>{viewMode === 'GROUPED_BY_PATIENT' ? 'Patient Prescription Queue' : 'Chronological Submissions'}</h2>
-            <span>{filteredRows.length}</span>
-          </div>
-
           {!filteredRows.length ? (
             <div className="rx-empty-queue">
               <FileText size={32} />
-              <strong>No prescriptions in this filter</strong>
-              <p>
-                {allRows.length > 0
-                  ? `There are ${allRows.length} total uploaded prescription(s) in the system. Click "All Prescriptions (${allRows.length})" above to view them.`
-                  : 'No prescriptions have been uploaded yet.'}
-              </p>
+              <strong>{allRows.length > 0 ? 'Nothing here' : 'No prescriptions yet'}</strong>
               {allRows.length > 0 && statusFilter !== 'ALL' && (
                 <button
                   type="button"
@@ -645,7 +622,7 @@ export default function Prescriptions() {
                   style={{ marginTop: 8, padding: '6px 12px', fontSize: '0.78rem' }}
                   onClick={() => setStatusFilter('ALL')}
                 >
-                  Show All Uploaded Prescriptions ({allRows.length})
+                  Show all ({allRows.length})
                 </button>
               )}
             </div>
@@ -672,7 +649,7 @@ export default function Prescriptions() {
                         <div className="rx-patient-meta-row">
                           {patient.age && <span>{patient.age} yrs</span>}
                           {patient.gender && <span>· {patient.gender}</span>}
-                          {patient.phone && <span>· 📞 {patient.phone}</span>}
+                          {patient.phone && <span>· {patient.phone}</span>}
                           {(patient.district || patient.state) && (
                             <span>
                               · {[patient.district, patient.state].filter(Boolean).join(', ')}
@@ -707,7 +684,7 @@ export default function Prescriptions() {
                           >
                             <div className="rx-submission-top">
                               <span className="rx-code-title">
-                                {rxCode} <small>· Plan Rev #{item.planRevision || 1}</small>
+                                {rxCode} {(item.planRevision || 1) > 1 && <small>· Rev #{item.planRevision}</small>}
                               </span>
                               <span className={statusBadgeClass(item.verificationStatus, item.activePlan)}>
                                 {formatStatusLabel(item.verificationStatus, item.activePlan)}
@@ -715,10 +692,11 @@ export default function Prescriptions() {
                             </div>
 
                             <div className="rx-submission-middle">
-                              <span>
-                                <Stethoscope size={12} />{' '}
-                                {item.prescriberName ? `Dr. ${item.prescriberName.replace(/^Dr\.?\s*/i, '')}` : 'Prescriber Unspecified'}
-                              </span>
+                              {item.prescriberName && (
+                                <span>
+                                  <Stethoscope size={12} /> Dr. {item.prescriberName.replace(/^Dr\.?\s*/i, '')}
+                                </span>
+                              )}
                               <span>
                                 <Pill size={12} /> {item.medicationCount ?? medsPreview.length} Medicine
                                 {(item.medicationCount ?? medsPreview.length) === 1 ? '' : 's'}
@@ -737,7 +715,7 @@ export default function Prescriptions() {
 
                             <div className="rx-submission-foot">
                               <small>Submitted {new Date(item.createdAt).toLocaleString()}</small>
-                              {item.reviewRequired && (
+                              {item.reviewRequired && item.verificationStatus !== 'UNVERIFIED' && (
                                 <span className="rx-ocr-flag">
                                   <AlertTriangle size={11} /> Check OCR
                                 </span>
@@ -781,7 +759,7 @@ export default function Prescriptions() {
                     <div className="rx-patient-meta-row" style={{ marginBottom: 6 }}>
                       {patient.age && <span>{patient.age} yrs</span>}
                       {patient.gender && <span>· {patient.gender}</span>}
-                      {patient.phone && <span>· 📞 {patient.phone}</span>}
+                      {patient.phone && <span>· {patient.phone}</span>}
                       {(patient.district || patient.state) && (
                         <span>· {[patient.district, patient.state].filter(Boolean).join(', ')}</span>
                       )}
@@ -789,7 +767,7 @@ export default function Prescriptions() {
 
                     <div className="rx-submission-middle">
                       <span className="rx-code-title">
-                        {rxCode} · Rev #{row.planRevision || 1}
+                        {rxCode}{(row.planRevision || 1) > 1 && ` · Rev #${row.planRevision}`}
                       </span>
                       <span>
                         <Pill size={12} /> {row.medicationCount ?? medsPreview.length} Medicine
@@ -815,11 +793,7 @@ export default function Prescriptions() {
           {!selected ? (
             <div className="rx-detail-empty">
               <ShieldCheck size={44} />
-              <h2>{busy ? 'Loading Patient & Prescription Record…' : 'Select a Patient Prescription to Review'}</h2>
-              <p>
-                Choose a patient submission from the left queue to inspect their demographics, view all prescriptions
-                uploaded by that patient, and approve or reject the medication regimen.
-              </p>
+              <h2>{busy ? 'Loading…' : 'Select a prescription'}</h2>
             </div>
           ) : (
             <div className="rx-detail-content">
@@ -834,24 +808,27 @@ export default function Prescriptions() {
                       <div className="rx-patient-banner-title">
                         <h2>{selectedPatient.fullName}</h2>
                         <span className="rx-patient-code">{selectedPatient.patientCode}</span>
-                        <span className="rx-patient-type-badge">
-                          {selectedPatient.patientType === 'SYNTHETIC_PATIENT' ? 'Synthetic Demo Patient' : 'Registered Mobile Patient'}
-                        </span>
+                        {selectedPatient.patientType === 'SYNTHETIC_PATIENT' && (
+                          <span className="rx-patient-type-badge">Test patient</span>
+                        )}
                       </div>
                       <div className="rx-patient-demographics-grid">
-                        <span>
-                          <User size={14} />{' '}
-                          <strong>Age / Sex:</strong>{' '}
-                          {selectedPatient.age ? `${selectedPatient.age} yrs` : 'N/A'}
-                          {selectedPatient.gender ? ` · ${selectedPatient.gender}` : ''}
-                        </span>
-                        <span>
-                          <Phone size={14} /> <strong>Phone:</strong> {selectedPatient.phone || 'Not provided'}
-                        </span>
-                        <span>
-                          <MapPin size={14} /> <strong>Location:</strong>{' '}
-                          {[selectedPatient.district, selectedPatient.state].filter(Boolean).join(', ') || 'Not specified'}
-                        </span>
+                        {(selectedPatient.age || selectedPatient.gender) && (
+                          <span>
+                            <User size={14} />{' '}
+                            {[selectedPatient.age && `${selectedPatient.age} yrs`, selectedPatient.gender].filter(Boolean).join(' · ')}
+                          </span>
+                        )}
+                        {selectedPatient.phone && (
+                          <span>
+                            <Phone size={14} /> {selectedPatient.phone}
+                          </span>
+                        )}
+                        {(selectedPatient.district || selectedPatient.state) && (
+                          <span>
+                            <MapPin size={14} /> {[selectedPatient.district, selectedPatient.state].filter(Boolean).join(', ')}
+                          </span>
+                        )}
                         {selectedPatient.abhaNumber && (
                           <span>
                             <ShieldCheck size={14} /> <strong>ABHA ID:</strong> {selectedPatient.abhaNumber}
@@ -864,19 +841,12 @@ export default function Prescriptions() {
               )}
 
               {/* 2. MULTI-PRESCRIPTION PATIENT HISTORY / TIMELINE SWITCHER */}
-              {selectedHistory.length > 0 && (
+              {selectedHistory.length > 1 && (
                 <div className="rx-history-switcher">
                   <div className="rx-history-header">
-                    <div>
-                      <strong>
-                        <Layers size={15} /> Patient Prescription History ({selectedHistory.length} Submission
-                        {selectedHistory.length === 1 ? '' : 's'} from {selectedPatient?.fullName})
-                      </strong>
-                      <small>
-                        Click any submission below to switch between prescriptions uploaded by this patient. Only one
-                        verified plan can be active at a time.
-                      </small>
-                    </div>
+                    <strong>
+                      <Layers size={15} /> {selectedHistory.length} prescriptions from this patient
+                    </strong>
                   </div>
 
                   <div className="rx-history-cards">
@@ -896,9 +866,7 @@ export default function Prescriptions() {
                               {histItem.prescriptionCode || formatPrescriptionCode(histItem)} · Rev #{histItem.planRevision || 1}
                             </strong>
                             <span className={statusBadgeClass(histItem.verificationStatus, histItem.activePlan)}>
-                              {histItem.activePlan && histItem.verificationStatus === 'VERIFIED'
-                                ? 'ACTIVE PLAN'
-                                : String(histItem.verificationStatus || '').replaceAll('_', ' ')}
+                              {formatStatusLabel(histItem.verificationStatus, histItem.activePlan)}
                             </span>
                           </div>
                           <div className="rx-history-card-meta">
@@ -919,14 +887,12 @@ export default function Prescriptions() {
                     <div className="rx-supersede-warning">
                       <AlertTriangle size={16} />
                       <span>
-                        <strong>Multiple Prescriptions Notice:</strong> {selectedPatient?.fullName} currently has an
-                        Active Verified Plan (
+                        Approving replaces the active plan{' '}
                         <strong>
                           {existingActivePlan.prescriptionCode || formatPrescriptionCode(existingActivePlan)} · Rev #
                           {existingActivePlan.planRevision}
                         </strong>
-                        ). Approving this prescription will automatically mark the previous plan as{' '}
-                        <code>SUPERSEDED</code> and activate this new regimen.
+                        .
                       </span>
                     </div>
                   )}
@@ -937,12 +903,12 @@ export default function Prescriptions() {
               <div className="rx-current-meta-bar">
                 <div>
                   <span className="rx-eyebrow-code">
-                    {formatPrescriptionCode(selected)} · PLAN REVISION #{selected.planRevision || 1}
+                    {formatPrescriptionCode(selected)} · Rev #{selected.planRevision || 1}
                   </span>
                   <h3>
                     {selected.prescriberName
                       ? `Prescribed by Dr. ${selected.prescriberName.replace(/^Dr\.?\s*/i, '')}`
-                      : 'Clinical Prescription Submission'}
+                      : 'Prescriber not given'}
                   </h3>
                   <div className="rx-current-submeta">
                     <span>
@@ -957,9 +923,6 @@ export default function Prescriptions() {
                         {selected.verifierRole})
                       </span>
                     )}
-                    <span className="rx-tech-file-tag" title="Original uploaded source file">
-                      Source: {selected.sourceMimeType || 'document'} ({selected.filename})
-                    </span>
                   </div>
                 </div>
                 <span className={statusBadgeClass(selected.verificationStatus, selected.activePlan)}>
@@ -972,17 +935,17 @@ export default function Prescriptions() {
                 {/* SOURCE DOCUMENT PANE */}
                 <div className="rx-source-card">
                   <div className="rx-card-section-header">
-                    <strong>Original Prescription Document</strong>
+                    <strong>Prescription</strong>
                     {sourceUrl && (
                       <a href={sourceUrl} target="_blank" rel="noreferrer" className="rx-open-external">
-                        <ExternalLink size={13} /> Open Full Size
+                        <ExternalLink size={13} /> Open
                       </a>
                     )}
                   </div>
                   <div className="rx-source-viewport">
                     {!sourceUrl ? (
                       <div className="rx-source-missing" style={{ padding: 16 }}>
-                        <strong>Source binary preview unavailable</strong>
+                        <strong>Image not available</strong>
                         {selected.extractedText ? (
                           <pre
                             style={{
@@ -998,11 +961,7 @@ export default function Prescriptions() {
                           >
                             {selected.extractedText}
                           </pre>
-                        ) : (
-                          <p style={{ margin: '6px 0 0', fontSize: '0.78rem', color: '#60766b' }}>
-                            Review extracted medication fields on the right.
-                          </p>
-                        )}
+                        ) : null}
                       </div>
                     ) : sourceKind.startsWith('image/') ? (
                       <img src={sourceUrl} alt="Uploaded prescription document" />
@@ -1015,10 +974,7 @@ export default function Prescriptions() {
                 {/* STRUCTURED CLINICAL VERIFICATION FORM */}
                 <div className="rx-verification-form-card">
                   <div className="rx-card-section-header">
-                    <div>
-                      <strong>Clinician-Verified Medication Regimen ({medications.length})</strong>
-                      <small>Verify every medicine name, strength, frequency, and meal timing before approval.</small>
-                    </div>
+                    <strong>Medicines ({medications.length})</strong>
                     {canDecide && (
                       <button
                         type="button"
@@ -1095,7 +1051,7 @@ export default function Prescriptions() {
                   {/* INVESTIGATIONS / LAB TESTS */}
                   <div className="rx-investigations-box">
                     <div className="rx-card-section-header">
-                      <strong>Recommended Lab Investigations ({investigations.length})</strong>
+                      <strong>Lab tests ({investigations.length})</strong>
                       {canDecide && (
                         <button
                           type="button"
@@ -1118,7 +1074,7 @@ export default function Prescriptions() {
                             <input
                               type="text"
                               disabled={!canDecide}
-                              placeholder="Investigation / Lab Test Name (e.g. HbA1c, CBC, Lipid Profile)"
+                              placeholder="Test name, e.g. HbA1c"
                               value={inv.rawName || inv.normalizedName || ''}
                               onChange={(e) =>
                                 setInvestigations((items) =>
@@ -1149,23 +1105,22 @@ export default function Prescriptions() {
                   <div className="rx-decision-box">
                     <div className="rx-notes-grid">
                       <label>
-                        <span>Internal Clinical Audit Note (Confidential — never shown to patient)</span>
+                        <span>Internal note (not shown to patient)</span>
                         <textarea
                           disabled={!canDecide}
                           value={note}
                           onChange={(event) => setNote(event.target.value)}
                           rows={2}
-                          placeholder="Optional internal clinical note for audit trail..."
                         />
                       </label>
                       <label>
-                        <span>Patient-Facing Guidance / Reason (Required for Rejection or Clearer Photo Request)</span>
+                        <span>Message to patient (required to reject or ask for a clearer photo)</span>
                         <textarea
                           disabled={!canDecide}
                           value={patientReason}
                           onChange={(event) => setPatientReason(event.target.value)}
                           rows={2}
-                          placeholder="e.g. Please upload a clearer photo where the doctor's signature and medicine dosages are fully visible."
+                          placeholder="e.g. Please upload a clearer photo of the medicines and doses."
                         />
                       </label>
                     </div>
@@ -1179,7 +1134,7 @@ export default function Prescriptions() {
                           onClick={() => void handleDecision('verify')}
                         >
                           <CheckCircle2 size={16} />
-                          <span>Approve & Activate Prescription Plan</span>
+                          <span>Approve</span>
                         </button>
                         <button
                           type="button"
@@ -1188,7 +1143,7 @@ export default function Prescriptions() {
                           onClick={() => void handleDecision('clearer')}
                         >
                           <AlertTriangle size={16} />
-                          <span>Request Clearer Photo</span>
+                          <span>Ask for clearer photo</span>
                         </button>
                         <button
                           type="button"
@@ -1196,7 +1151,7 @@ export default function Prescriptions() {
                           disabled={busy || !patientReason.trim()}
                           onClick={() => void handleDecision('reject')}
                         >
-                          <span>Reject Submission</span>
+                          <span>Reject</span>
                         </button>
                       </div>
                     ) : (

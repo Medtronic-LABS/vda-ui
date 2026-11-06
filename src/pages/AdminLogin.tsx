@@ -14,7 +14,7 @@ export const AdminLogin: React.FC = () => {
     e.preventDefault();
     setError('');
     if (!identifier.trim() || !password) {
-      setError('Please enter both User ID and Password.');
+      setError('Enter your email or user ID and password.');
       return;
     }
     setSubmitting(true);
@@ -32,34 +32,21 @@ export const AdminLogin: React.FC = () => {
     }
   };
 
-  const fillDemoRole = (role: 'ADMIN' | 'MEDICAL_OFFICER') => {
-    setError('');
-    if (role === 'ADMIN') {
-      setIdentifier('admin@vdahealth.org');
-      setPassword('demo');
-    } else {
-      setIdentifier('doctor@vdahealth.org');
-      setPassword('demo');
-    }
-  };
-
   return (
     <main className="admin-login-shell">
       <div className="admin-login-card">
         <div className="admin-login-brand">
-          <span className="admin-login-badge">VDA CLINICAL & GOVERNANCE PORTAL</span>
-          <h1>Sign in to VDA Portal</h1>
-          <p>Role-based access for System Administration and Clinical Prescription Verification.</p>
+          <h1>Sehat Saathi</h1>
+          <p>Admin portal</p>
         </div>
 
         <form onSubmit={handleSubmit} className="admin-login-form">
           <label>
-            <span>User ID / Email</span>
+            <span>Email or user ID</span>
             <input
               type="text"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              placeholder="e.g. doctor@vdahealth.org or admin@vdahealth.org"
               autoComplete="username"
             />
           </label>
@@ -70,50 +57,16 @@ export const AdminLogin: React.FC = () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter password"
               autoComplete="current-password"
             />
           </label>
 
-          {error && <div className="clinical-alert error">{error}</div>}
+          {error && <div className="clinical-alert error" role="alert">{error}</div>}
 
           <button type="submit" className="admin-login-submit" disabled={submitting}>
-            {submitting ? 'Signing in...' : 'Sign In to Portal'}
+            {submitting ? 'Signing in…' : 'Sign in'}
           </button>
         </form>
-
-        <div className="admin-login-roles-box">
-          <div className="admin-login-roles-title">Configured Portal Roles (Click to Auto-Fill)</div>
-          <div className="admin-login-role-cards">
-            <button
-              type="button"
-              className="admin-role-preset"
-              onClick={() => fillDemoRole('ADMIN')}
-            >
-              <div>
-                <strong>System Administrator</strong>
-                <span className="role-pill role-pill-admin">FULL ACCESS</span>
-              </div>
-              <small>ID: <code>admin@vdahealth.org</code> (or <code>admin</code>)</small>
-              <small>Password: <code>demo</code> (or any password)</small>
-              <em>Access to all governance, knowledge, patients, escalations & prescriptions</em>
-            </button>
-
-            <button
-              type="button"
-              className="admin-role-preset"
-              onClick={() => fillDemoRole('MEDICAL_OFFICER')}
-            >
-              <div>
-                <strong>Medical Officer / Clinical Reviewer</strong>
-                <span className="role-pill role-pill-medical">PRESCRIPTIONS ONLY</span>
-              </div>
-              <small>ID: <code>doctor@vdahealth.org</code> (or <code>doctor</code>)</small>
-              <small>Password: <code>demo</code> (or any password)</small>
-              <em>Restricted exclusively to Patient Prescription Review & Approval</em>
-            </button>
-          </div>
-        </div>
       </div>
     </main>
   );

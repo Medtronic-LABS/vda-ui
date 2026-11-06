@@ -148,12 +148,7 @@ export default function SyntheticPatients() {
   const selectedProfile = selected?.clinicalProfile || {};
   const selectedDetails = !selected ? null : (
     <section className="panel">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{selected.name} — record detail</h2>
-        <span className="badge" style={{ background: '#3b82f6', color: '#fff', fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px' }}>
-          DEVELOPMENT / SYNTHETIC PATIENT
-        </span>
-      </div>
+      <h2>{selected.name}</h2>
       {loadingDetails ? (
         <p>Loading patient records...</p>
       ) : (
@@ -180,22 +175,12 @@ export default function SyntheticPatients() {
   return (
     <>
       {selectedDetails}
-      <h1>Synthetic Patients</h1>
-      <section className="panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <b style={{ color: '#38bdf8' }}>SYNTHETIC DEVELOPMENT DATA — NOT REAL PATIENT DATA</b>
-            <p style={{ margin: '4px 0 0 0' }}>Create and manage test profiles. Every VDA session is scoped to the selected patient profile.</p>
-          </div>
-          <span className="badge" style={{ background: '#0284c7', color: '#fff', padding: '4px 10px', borderRadius: '4px', fontSize: '0.8rem' }}>
-            DEVELOPMENT / SYNTHETIC
-          </span>
-        </div>
-        {error && <p style={{ color: '#ef4444', marginTop: '8px' }}>{error}</p>}
-      </section>
+      <h1>Test Patients</h1>
+      <p style={{ marginTop: 0, color: '#5b7066' }}>Test data only, not real patients.</p>
+      {error && <p role="alert" style={{ color: '#ef4444' }}>{error}</p>}
 
       <section className="panel">
-        <h2>{editing ? 'Edit synthetic patient' : 'Create synthetic patient'}</h2>
+        <h2>{editing ? 'Edit test patient' : 'New test patient'}</h2>
         <form onSubmit={submit}>
           <input required placeholder="Name" value={form.name} onChange={(e) => field('name')(e.target.value)} />
           <input required type="number" min="0" placeholder="Age" value={form.age} onChange={(e) => field('age')(e.target.value)} />
@@ -220,7 +205,7 @@ export default function SyntheticPatients() {
       </section>
 
       <section className="panel">
-        <h2>Patient Test Profiles</h2>
+        <h2>Profiles</h2>
         {loading ? (
           <p>Loading patient profiles...</p>
         ) : (
@@ -229,12 +214,7 @@ export default function SyntheticPatients() {
               const summary = patientSummary(p);
               return (
                 <article key={p.id}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0 }}>👤 {p.name}</h3>
-                    <span style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56,189,248,0.3)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>
-                      DEVELOPMENT / SYNTHETIC
-                    </span>
-                  </div>
+                  <h3 style={{ margin: 0 }}>{p.name}</h3>
                   <p className="patient-card-meta" style={{ marginTop: '8px' }}>
                     Age: {p.age || 'Not recorded'} • {[p.district, p.state].filter(Boolean).join(', ') || 'Location unavailable'}
                   </p>

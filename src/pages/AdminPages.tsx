@@ -48,15 +48,12 @@ export function Dashboard() {
             <b>Knowledge Documents<br /><small>{value('knowledgeDocuments')}</small></b>
             <b>Active Documents<br /><small>{value('activeKnowledgeDocuments')}</small></b>
             <b>Embeddings<br /><small>{value('embeddings')}</small></b>
-            <b>Synthetic Patients<br /><small>{value('syntheticPatients')}</small></b>
+            <b>Test Patients<br /><small>{value('syntheticPatients')}</small></b>
             <b>Active Sessions<br /><small>{value('activeSessions')}</small></b>
             <b>RAG Queries<br /><small>{value('ragQueries')}</small></b>
             <b>Safety Escalations<br /><small>{value('safetyEscalations')}</small></b>
             <b>Facilities<br /><small>{value('facilities')}</small></b>
           </div>
-          <section className="panel">
-            <p>All totals are derived live from local backend databases. Missing data is never estimated.</p>
-          </section>
         </>
       )}
     </>
@@ -188,7 +185,7 @@ export function RagQuality() {
 
   const handleRunEvaluation = async () => {
     setEvaluating(true);
-    setEvalNotice('Running evaluation against 20 controlled dataset cases...');
+    setEvalNotice('');
     try {
       await runControlledEvaluation();
       setEvalNotice('Evaluation completed.');
@@ -209,7 +206,7 @@ export function RagQuality() {
 
   return (
     <>
-      <h1>RAG Quality & Evaluation</h1>
+      <h1>RAG Quality</h1>
       {loading && (
         <section className="panel">
           <p>Loading evaluation metrics...</p>
@@ -223,15 +220,11 @@ export function RagQuality() {
       )}
       {data && !loading && (
         <>
-          {/* SECTION A — DEVELOPMENT RAG EVALUATION */}
           <section className="panel" style={{ marginBottom: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Development RAG Evaluation</h2>
-                <small style={{ color: '#94a3b8' }}>Calculated from the controlled 20-case evaluation dataset.</small>
-              </div>
+              <h2 style={{ margin: 0, fontSize: '1.25rem' }}>Evaluation</h2>
               <button onClick={handleRunEvaluation} disabled={evaluating}>
-                {evaluating ? 'Running evaluation...' : 'Run Evaluation'}
+                {evaluating ? 'Running…' : 'Run evaluation'}
               </button>
             </div>
 
@@ -245,8 +238,8 @@ export function RagQuality() {
               <ScoreCard label="Context Precision" value={percent(evalData?.contextPrecision)} />
               <ScoreCard label="Context Recall" value={percent(evalData?.contextRecall)} />
               <ScoreCard label="Faithfulness" value={percent(evalData?.faithfulness)} />
-              <ScoreCard label="Answer Relevancy" value={evalData?.answerRelevancy !== null && evalData?.answerRelevancy !== undefined ? percent(evalData?.answerRelevancy) : 'N/A — ground truth unavailable'} />
-              <ScoreCard label="Escalation Recall" value={evalData?.escalationRecall !== null && evalData?.escalationRecall !== undefined ? percent(evalData?.escalationRecall) : 'N/A — no escalation cases'} />
+              <ScoreCard label="Answer Relevancy" value={evalData?.answerRelevancy !== null && evalData?.answerRelevancy !== undefined ? percent(evalData?.answerRelevancy) : 'N/A'} />
+              <ScoreCard label="Escalation Recall" value={evalData?.escalationRecall !== null && evalData?.escalationRecall !== undefined ? percent(evalData?.escalationRecall) : 'N/A'} />
             </div>
 
             <div className="tiles" style={{ marginBottom: '12px' }}>
@@ -256,15 +249,10 @@ export function RagQuality() {
               <b>Failed<br /><small>{evalData?.failedCases ?? '0'}</small></b>
               <b>Last Run<br /><small>{evalData?.lastRunAt ? new Date(evalData.lastRunAt).toLocaleTimeString() : 'Never'}</small></b>
             </div>
-
-            <small style={{ color: '#64748b', display: 'block' }}>
-              Deterministic evaluation against the controlled development dataset. These metrics are not official RAGAS judge scores.
-            </small>
           </section>
 
-          {/* SECTION B — OPERATIONAL RAG METRICS */}
           <section className="panel">
-            <h2 style={{ fontSize: '1.25rem', marginBottom: '12px' }}>Operational RAG Metrics</h2>
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '12px' }}>Live queries</h2>
             <div className="tiles" style={{ marginBottom: '16px' }}>
               <b>Total RAG Queries<br /><small>{operational?.totalEvaluationCases ?? data.evaluationCount}</small></b>
               <b>Retrieval Rate<br /><small>{percent(operational?.successfulRetrievalRate)}</small></b>
@@ -274,7 +262,7 @@ export function RagQuality() {
               <b>No-result Queries<br /><small>{operational?.failedCaseCount ?? 0}</small></b>
             </div>
 
-            <h3>Recent privacy-minimized traces</h3>
+            <h3>Recent queries</h3>
             {!data.traces?.length ? (
               <p>No evaluations recorded yet.</p>
             ) : (

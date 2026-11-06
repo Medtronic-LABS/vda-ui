@@ -1,4 +1,4 @@
-import { Activity, BookOpen, ClipboardCheck, HeartPulse, LogOut, ShieldAlert, Stethoscope } from 'lucide-react';
+import { Activity, BookOpen, ClipboardCheck, HeartPulse, LogOut, ShieldAlert } from 'lucide-react';
 import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import Knowledge from './features/knowledge/Knowledge';
@@ -12,22 +12,6 @@ import ClinicalEscalations from './pages/ClinicalEscalations';
 import { getOpenClinicalEscalationCount, listPrescriptionWorklist } from './api/vda';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AdminLogin } from './pages/AdminLogin';
-
-const Landing = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const target = user?.role === 'MEDICAL_OFFICER' ? '/admin/prescriptions' : '/admin/dashboard';
-  return (
-    <main className="landing">
-      <HeartPulse size={45} />
-      <h1>VDA Health</h1>
-      <p>Clinical Prescription Verification & Governance Portal</p>
-      <button className="secondary" onClick={() => navigate(target)}>
-        {user ? `Continue as ${user.displayName}` : 'Sign In to Portal'}
-      </button>
-    </main>
-  );
-};
 
 function EscalationNav() {
   const [open, setOpen] = useState<number | null>(null);
@@ -47,7 +31,7 @@ function EscalationNav() {
   return (
     <NavLink to="/admin/escalations">
       <ShieldAlert />
-      Clinical Escalations {open !== null && open > 0 && <span className="nav-badge">{open}</span>}
+      Escalations {open !== null && open > 0 && <span className="nav-badge">{open}</span>}
     </NavLink>
   );
 }
@@ -94,16 +78,10 @@ function Admin() {
     <main className="admin">
       <aside className="admin-sidebar">
         <div>
-          <h2>
-            VDA <small>{hasFullAdminAccess ? 'ADMIN' : 'CLINICAL'}</small>
-          </h2>
+          <h2>Sehat Saathi</h2>
           <div className="sidebar-user-card">
-            <div className="sidebar-user-role">
-              <Stethoscope size={14} />
-              <span>{user.role === 'ADMIN' ? 'SYSTEM ADMIN' : 'MEDICAL OFFICER'}</span>
-            </div>
             <strong>{user.displayName}</strong>
-            <small>{user.email}</small>
+            <small>{user.role === 'ADMIN' ? 'Administrator' : 'Medical Officer'}</small>
           </div>
           <nav className="sidebar-nav-links">
             {hasFullAdminAccess && (
@@ -118,7 +96,7 @@ function Admin() {
                 </NavLink>
                 <NavLink to="/admin/patients">
                   <HeartPulse />
-                  Synthetic Patients
+                  Test Patients
                 </NavLink>
               </>
             )}
@@ -183,7 +161,7 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route path="/" element={<Navigate to="/admin" replace />} />
         <Route path="/admin/*" element={<Admin />} />
       </Routes>
     </AuthProvider>
