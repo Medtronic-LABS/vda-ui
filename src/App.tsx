@@ -9,7 +9,7 @@ import SyntheticPatients from './pages/SyntheticPatients';
 import Medications from './pages/Medications';
 import Prescriptions from './pages/Prescriptions';
 import ClinicalEscalations from './pages/ClinicalEscalations';
-import { getOpenClinicalEscalationCount } from './api/vda';
+import { getOpenClinicalEscalationCount, listPrescriptionWorklist } from './api/vda';
 import { AuthProvider, useAuth } from './auth/AuthContext';
 import { AdminLogin } from './pages/AdminLogin';
 
@@ -48,6 +48,36 @@ function EscalationNav() {
     <NavLink to="/admin/escalations">
       <ShieldAlert />
       Clinical Escalations {open !== null && open > 0 && <span className="nav-badge">{open}</span>}
+    </NavLink>
+  );
+}
+
+function PrescriptionNav() {
+  const [pendingCount, setPendingCount] = useState<number>(0);
+  useEffect(() => {
+    let active = true;
+    const poll = () => {
+      void listPrescriptionWorklist(undefined)
+        .then((rows) => {
+          if (!active || !Array.isArray(rows)) return;
+          const pending = rows.filter(
+            (r) => r?.verificationStatus === 'PENDING_VERIFICATION' || r?.verificationStatus === 'UNVERIFIED',
+          ).length;
+          setPendingCount(pending);
+        })
+        .catch(() => {});
+    };
+    poll();
+    const timer = window.setInterval(poll, 10000);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+  return (
+    <NavLink to="/admin/prescriptions">
+      <ClipboardCheck />
+      Prescription Review {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
     </NavLink>
   );
 }
@@ -92,10 +122,7 @@ function Admin() {
                 </NavLink>
               </>
             )}
-            <NavLink to="/admin/prescriptions">
-              <ClipboardCheck />
-              Prescription Review
-            </NavLink>
+            <PrescriptionNav />
             {hasFullAdminAccess && (
               <>
                 <EscalationNav />

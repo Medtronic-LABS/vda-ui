@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  Bell,
   Calendar,
   CheckCircle2,
   Clock,
@@ -33,13 +34,9 @@ type StatusTab = {
 };
 
 const STATUS_TABS: StatusTab[] = [
-  { id: 'NEEDS_ACTION', label: 'Awaiting Approval (All Pending)' },
-  { id: 'PENDING_VERIFICATION', label: 'Pending Review' },
-  { id: 'UNVERIFIED', label: 'OCR Flagged' },
-  { id: 'VERIFIED', label: 'Verified (Active)' },
-  { id: 'NEEDS_RESUBMISSION', label: 'Resubmission Requested' },
-  { id: 'REJECTED', label: 'Rejected' },
-  { id: 'SUPERSEDED', label: 'Superseded History' },
+  { id: 'PENDING_REVIEW', label: 'Pending Review' },
+  { id: 'VERIFIED', label: 'Approved (Active)' },
+  { id: 'FLAGGED_DECLINED', label: 'Flagged / Declined' },
   { id: 'ALL', label: 'All Prescriptions' },
 ];
 
@@ -184,7 +181,7 @@ function normalizeDetailInvestigations(detail: any): any[] {
 }
 
 export default function Prescriptions() {
-  const [statusFilter, setStatusFilter] = useState<string>('NEEDS_ACTION');
+  const [statusFilter, setStatusFilter] = useState<string>('PENDING_REVIEW');
   const [viewMode, setViewMode] = useState<'GROUPED_BY_PATIENT' | 'CHRONOLOGICAL'>('GROUPED_BY_PATIENT');
   const [searchQuery, setSearchQuery] = useState('');
   const [allRows, setAllRows] = useState<any[]>([]);
@@ -196,19 +193,42 @@ export default function Prescriptions() {
   const [sourceUrl, setSourceUrl] = useState('');
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [newUploadAlert, setNewUploadAlert] = useState<any | null>(null);
+  const knownIdsRef = useRef<Set<string>>(new Set());
+  const initialLoadDoneRef = useRef<boolean>(false);
 
-  const refresh = async () => {
+  const refresh = async (silent = false) => {
     try {
       // Always fetch all prescriptions so existing uploads across any status are visible and counted
       const list = await listPrescriptionWorklist(undefined);
-      setAllRows(Array.isArray(list) ? list : []);
+      const rows = Array.isArray(list) ? list : [];
+      if (initialLoadDoneRef.current) {
+        const newlyArrived = rows.find(
+          (row) =>
+            row?.id &&
+            !knownIdsRef.current.has(String(row.id)) &&
+            (row.verificationStatus === 'PENDING_VERIFICATION' || row.verificationStatus === 'UNVERIFIED'),
+        );
+        if (newlyArrived) {
+          setNewUploadAlert(newlyArrived);
+        }
+      }
+      knownIdsRef.current = new Set(rows.map((r) => String(r?.id || '')).filter(Boolean));
+      initialLoadDoneRef.current = true;
+      setAllRows(rows);
     } catch (error: any) {
-      setNotice({ type: 'error', text: error.message || 'Failed to load prescription queue.' });
+      if (!silent) {
+        setNotice({ type: 'error', text: error.message || 'Failed to load prescription queue.' });
+      }
     }
   };
 
   useEffect(() => {
-    void refresh();
+    void refresh(false);
+    const interval = window.setInterval(() => {
+      void refresh(true);
+    }, 10000);
+    return () => window.clearInterval(interval);
   }, []);
 
   useEffect(
@@ -324,23 +344,22 @@ export default function Prescriptions() {
     }
   };
 
-  // Compute counts per tab from allRows
+  // Compute counts per simplified 4-tab layout from allRows
   const tabCounts = useMemo(() => {
     const counts: Record<string, number> = {
-      NEEDS_ACTION: 0,
-      PENDING_VERIFICATION: 0,
-      UNVERIFIED: 0,
+      PENDING_REVIEW: 0,
       VERIFIED: 0,
-      NEEDS_RESUBMISSION: 0,
-      REJECTED: 0,
-      SUPERSEDED: 0,
+      FLAGGED_DECLINED: 0,
       ALL: allRows.length,
     };
     for (const row of allRows) {
       const st = String(row.verificationStatus || '');
-      if (st in counts) counts[st] += 1;
-      if (st === 'PENDING_VERIFICATION' || st === 'UNVERIFIED') {
-        counts.NEEDS_ACTION += 1;
+      if (st === 'PENDING_VERIFICATION') {
+        counts.PENDING_REVIEW += 1;
+      } else if (st === 'VERIFIED') {
+        counts.VERIFIED += 1;
+      } else if (st === 'UNVERIFIED' || st === 'REJECTED' || st === 'NEEDS_RESUBMISSION') {
+        counts.FLAGGED_DECLINED += 1;
       }
     }
     return counts;
@@ -380,9 +399,18 @@ export default function Prescriptions() {
 
   const statusFilteredRows = useMemo(() => {
     if (statusFilter === 'ALL') return enrichedRows;
-    if (statusFilter === 'NEEDS_ACTION') {
+    if (statusFilter === 'PENDING_REVIEW') {
+      return enrichedRows.filter((row) => row.verificationStatus === 'PENDING_VERIFICATION');
+    }
+    if (statusFilter === 'VERIFIED') {
+      return enrichedRows.filter((row) => row.verificationStatus === 'VERIFIED');
+    }
+    if (statusFilter === 'FLAGGED_DECLINED') {
       return enrichedRows.filter(
-        (row) => row.verificationStatus === 'PENDING_VERIFICATION' || row.verificationStatus === 'UNVERIFIED',
+        (row) =>
+          row.verificationStatus === 'UNVERIFIED' ||
+          row.verificationStatus === 'REJECTED' ||
+          row.verificationStatus === 'NEEDS_RESUBMISSION',
       );
     }
     return enrichedRows.filter((row) => row.verificationStatus === statusFilter);
@@ -536,6 +564,55 @@ export default function Prescriptions() {
             </span>
           </div>
         </div>
+
+        {newUploadAlert && (
+          <div
+            className="clinical-alert"
+            role="alert"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              background: '#eff6ff',
+              border: '1px solid #3b82f6',
+              color: '#1e3a8a',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Bell size={18} />
+              <span>
+                <strong>New Prescription Uploaded — Awaiting Medical Officer Review:</strong>{' '}
+                {extractPatientSummary(newUploadAlert).fullName} ({formatPrescriptionCode(newUploadAlert)})
+              </span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <button
+                type="button"
+                className="primary"
+                style={{ padding: '6px 12px', fontSize: '0.78rem' }}
+                onClick={() => {
+                  const alertRow = newUploadAlert;
+                  setNewUploadAlert(null);
+                  setStatusFilter(
+                    alertRow.verificationStatus === 'UNVERIFIED' ? 'FLAGGED_DECLINED' : 'PENDING_REVIEW',
+                  );
+                  void openPrescription(alertRow.id);
+                }}
+              >
+                Review Now
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                onClick={() => setNewUploadAlert(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {notice && (
           <div className={`clinical-alert ${notice.type === 'error' ? 'error' : 'success'}`} role="status">
