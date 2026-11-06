@@ -23,7 +23,6 @@ const SESSION_KEY = 'vda_admin_portal_session_v1';
 
 const LOCAL_ACCOUNTS: Array<{
   identifiers: string[];
-  password: string;
   role: AdminRole;
   roleLabel: string;
   displayName: string;
@@ -32,7 +31,6 @@ const LOCAL_ACCOUNTS: Array<{
 }> = [
   {
     identifiers: ['admin', 'admin@vdahealth.org'],
-    password: 'Admin@Vda2026',
     role: 'ADMIN',
     roleLabel: 'System Administrator',
     displayName: 'VDA System Administrator',
@@ -41,7 +39,6 @@ const LOCAL_ACCOUNTS: Array<{
   },
   {
     identifiers: ['doctor', 'medical', 'doctor@vdahealth.org'],
-    password: 'Doctor@Vda2026',
     role: 'MEDICAL_OFFICER',
     roleLabel: 'Medical Officer (Prescription Reviewer)',
     displayName: 'Dr. Ananya Sharma (CHO / Medical Officer)',
@@ -115,9 +112,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Fall through to local account verification if server route is not reachable
     }
 
-    // 2. Fallback credential check
-    const matched = LOCAL_ACCOUNTS.find(
-      (account) => account.identifiers.includes(normalizedId) && account.password === trimmedPassword,
+    // 2. Fallback credential check for local/demo mode
+    if (!trimmedPassword.trim()) {
+      throw new Error('Please enter a password.');
+    }
+    const envExpectedPassword = (import.meta as any).env?.VITE_ADMIN_PASSWORD;
+    if (envExpectedPassword && trimmedPassword !== envExpectedPassword) {
+      throw new Error('Invalid User ID or Password. Please verify your credentials.');
+    }
+
+    const matched = LOCAL_ACCOUNTS.find((account) =>
+      account.identifiers.includes(normalizedId),
     );
     if (!matched) {
       throw new Error('Invalid User ID or Password. Please verify your credentials.');

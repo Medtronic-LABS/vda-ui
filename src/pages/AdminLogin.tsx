@@ -36,10 +36,10 @@ export const AdminLogin: React.FC = () => {
     setError('');
     if (role === 'ADMIN') {
       setIdentifier('admin@vdahealth.org');
-      setPassword('Admin@Vda2026');
+      setPassword('demo');
     } else {
       setIdentifier('doctor@vdahealth.org');
-      setPassword('Doctor@Vda2026');
+      setPassword('demo');
     }
   };
 
@@ -95,7 +95,7 @@ export const AdminLogin: React.FC = () => {
                 <span className="role-pill role-pill-admin">FULL ACCESS</span>
               </div>
               <small>ID: <code>admin@vdahealth.org</code> (or <code>admin</code>)</small>
-              <small>PW: <code>Admin@Vda2026</code></small>
+              <small>Password: <code>demo</code> (or any password)</small>
               <em>Access to all governance, knowledge, patients, escalations & prescriptions</em>
             </button>
 
@@ -109,7 +109,7 @@ export const AdminLogin: React.FC = () => {
                 <span className="role-pill role-pill-medical">PRESCRIPTIONS ONLY</span>
               </div>
               <small>ID: <code>doctor@vdahealth.org</code> (or <code>doctor</code>)</small>
-              <small>PW: <code>Doctor@Vda2026</code></small>
+              <small>Password: <code>demo</code> (or any password)</small>
               <em>Restricted exclusively to Patient Prescription Review & Approval</em>
             </button>
           </div>
