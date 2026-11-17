@@ -563,9 +563,9 @@ export default function Prescriptions() {
               alignItems: 'center',
               justifyContent: 'space-between',
               gap: 12,
-              background: '#eff6ff',
-              border: '1px solid #3b82f6',
-              color: '#1e3a8a',
+              background: 'var(--blue-bg)',
+              border: '1px solid transparent',
+              color: 'var(--blue)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -841,7 +841,8 @@ export default function Prescriptions() {
               )}
 
               {/* 2. MULTI-PRESCRIPTION PATIENT HISTORY / TIMELINE SWITCHER */}
-              {selectedHistory.length > 1 && (
+              {/* The grouped list already shows this patient's other prescriptions. */}
+              {viewMode === 'CHRONOLOGICAL' && selectedHistory.length > 1 && (
                 <div className="rx-history-switcher">
                   <div className="rx-history-header">
                     <strong>

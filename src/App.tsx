@@ -61,7 +61,7 @@ function PrescriptionNav() {
   return (
     <NavLink to="/admin/prescriptions">
       <ClipboardCheck />
-      Prescription Review {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
+      Prescriptions {pendingCount > 0 && <span className="nav-badge">{pendingCount}</span>}
     </NavLink>
   );
 }
@@ -77,13 +77,8 @@ function Admin() {
   return (
     <main className="admin">
       <aside className="admin-sidebar">
-        <div>
-          <h2>Sehat Saathi</h2>
-          <div className="sidebar-user-card">
-            <strong>{user.displayName}</strong>
-            <small>{user.role === 'ADMIN' ? 'Administrator' : 'Medical Officer'}</small>
-          </div>
-          <nav className="sidebar-nav-links">
+        <h2>Sehat Saathi</h2>
+        <nav className="sidebar-nav-links">
             {hasFullAdminAccess && (
               <>
                 <NavLink to="/admin/dashboard">
@@ -111,8 +106,11 @@ function Admin() {
               </>
             )}
           </nav>
-        </div>
 
+        <div className="sidebar-user-card">
+          <strong>{user.displayName}</strong>
+          <small>{user.role === 'ADMIN' ? 'Administrator' : 'Medical Officer'}</small>
+        </div>
         <button
           type="button"
           className="sidebar-logout-btn"
@@ -121,8 +119,8 @@ function Admin() {
             navigate('/admin/login', { replace: true });
           }}
         >
-          <LogOut size={15} />
-          <span>Sign Out</span>
+          <LogOut size={17} />
+          <span>Sign out</span>
         </button>
       </aside>
 

@@ -42,55 +42,76 @@ export default function Knowledge() {
 
   const detail = (id: string) =>
     getKnowledgeDocument(undefined, id)
-      .then(setSelected)
+      .then((doc) => {
+        setSelected(doc);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      })
       .catch((e) => setError('Unable to load document detail.'));
 
   return (
     <>
       <h1>Knowledge</h1>
       {error && (
-        <section className="panel">
-          <p style={{ color: '#ef4444' }}>{error}</p>
-        </section>
+        <p className="clinical-alert error" role="alert">{error}</p>
       )}
 
       <section className="panel">
         <h2>Upload</h2>
-        <form onSubmit={upload}>
-          <input
-            required
-            placeholder="Title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-          />
-          <input
-            required
-            placeholder="Source"
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-          />
-          <input
-            required
-            placeholder="Domain"
-            value={domain}
-            onChange={(e) => setDomain(e.target.value)}
-          />
-          <input
-            required
-            placeholder="Category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          />
-          <input
-            required
-            type="file"
-            accept=".pdf,.docx,.txt,.md,.json,.csv"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
+        <form onSubmit={upload} className="upload-form">
+          <label>
+            <span>Title</span>
+            <input required value={title} onChange={(e) => setTitle(e.target.value)} />
+          </label>
+          <label>
+            <span>Source</span>
+            <input required value={source} onChange={(e) => setSource(e.target.value)} />
+          </label>
+          <label>
+            <span>Domain</span>
+            <input required value={domain} onChange={(e) => setDomain(e.target.value)} />
+          </label>
+          <label>
+            <span>Category</span>
+            <input required value={category} onChange={(e) => setCategory(e.target.value)} />
+          </label>
+          <label className="upload-file">
+            <span>File</span>
+            <input
+              required
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.json,.csv"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </label>
           <button disabled={!file}>Upload</button>
         </form>
-        <p>New documents are used only after you approve them.</p>
+        <p className="panel-note">New documents are used only after you approve them.</p>
       </section>
+
+      {selected && (
+        <section className="panel">
+          <div className="panel-heading">
+            <h2>{selected.title}</h2>
+            <button type="button" className="secondary" onClick={() => setSelected(null)}>Close</button>
+          </div>
+          <dl className="detail-list">
+            <dt>Status</dt>
+            <dd>{selected.status}</dd>
+            <dt>Chunks</dt>
+            <dd>{selected.chunks?.length ?? 0}</dd>
+            <dt>Embeddings</dt>
+            <dd>
+              {(selected.chunks || []).length === 0
+                ? 'Not processed'
+                : (selected.chunks || []).every((chunk: any) => chunk.embedding)
+                ? 'Complete'
+                : `Incomplete (${(selected.chunks || []).filter((chunk: any) => Boolean(chunk.embedding)).length})`}
+            </dd>
+            <dt>Checksum</dt>
+            <dd className="technical-id">{selected.checksum || 'Not available'}</dd>
+          </dl>
+        </section>
+      )}
 
       <section className="panel">
         <h2>Documents</h2>
@@ -99,6 +120,7 @@ export default function Knowledge() {
         ) : !docs.length ? (
           <p>No knowledge documents yet.</p>
         ) : (
+          <div className="table-scroll">
           <table>
             <thead>
               <tr>
@@ -114,7 +136,7 @@ export default function Knowledge() {
               {docs.map((d) => (
                 <tr key={identifier(d)}>
                   <td>
-                    <button className="secondary" onClick={() => detail(identifier(d))}>
+                    <button type="button" className="link-button" onClick={() => detail(identifier(d))}>
                       {d.title}
                     </button>
                   </td>
@@ -145,29 +167,9 @@ export default function Knowledge() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
-
-      {selected && (
-        <section className="panel">
-          <h2>Document processing detail</h2>
-          <p>
-            <b>{selected.title}</b> • {selected.status}
-          </p>
-          <p>
-            Checksum: {selected.checksum || 'Not available'} • Chunks: {selected.chunks?.length ?? 0} • Embeddings:{' '}
-            {(selected.chunks || []).filter((chunk: any) => Boolean(chunk.embedding)).length}
-          </p>
-          <p>
-            Embedding status:{' '}
-            {(selected.chunks || []).length === 0
-              ? 'Not processed'
-              : (selected.chunks || []).every((chunk: any) => chunk.embedding)
-              ? 'Complete'
-              : 'Incomplete'}
-          </p>
-        </section>
-      )}
     </>
   );
 }

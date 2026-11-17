@@ -53,6 +53,7 @@ export default function SyntheticPatients() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const [selected, setSelected] = useState<any | null>(null);
   const [details, setDetails] = useState<{ medications: any[]; prescriptions: any[]; adherence: any[] } | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -74,6 +75,7 @@ export default function SyntheticPatients() {
 
   const edit = (patient: any) => {
     setEditing(patient.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
     setForm({
       name: patient.name || '',
       age: String(patient.age || ''),
@@ -125,6 +127,7 @@ export default function SyntheticPatients() {
       request
         .then(() => {
           setEditing(null);
+          setCreating(false);
           setForm(emptyForm());
           load();
         })
@@ -175,34 +178,49 @@ export default function SyntheticPatients() {
   return (
     <>
       {selectedDetails}
-      <h1>Test Patients</h1>
-      <p style={{ marginTop: 0, color: '#5b7066' }}>Test data only, not real patients.</p>
-      {error && <p role="alert" style={{ color: '#ef4444' }}>{error}</p>}
+      <div className="page-header">
+        <div>
+          <h1>Test Patients</h1>
+          <p className="panel-note">Test data only, not real patients.</p>
+        </div>
+        {!editing && !creating && (
+          <button type="button" className="primary-button" onClick={() => setCreating(true)}>New test patient</button>
+        )}
+      </div>
+      {error && <p className="clinical-alert error" role="alert">{error}</p>}
 
-      <section className="panel">
-        <h2>{editing ? 'Edit test patient' : 'New test patient'}</h2>
-        <form onSubmit={submit}>
-          <input required placeholder="Name" value={form.name} onChange={(e) => field('name')(e.target.value)} />
-          <input required type="number" min="0" placeholder="Age" value={form.age} onChange={(e) => field('age')(e.target.value)} />
-          <input type="date" value={form.dateOfBirth} onChange={(e) => field('dateOfBirth')(e.target.value)} />
-          <input required placeholder="Sex" value={form.gender} onChange={(e) => field('gender')(e.target.value)} />
-          <input required placeholder="State" value={form.state} onChange={(e) => field('state')(e.target.value)} />
-          <input required placeholder="District" value={form.district} onChange={(e) => field('district')(e.target.value)} />
-          <input placeholder="City" value={form.city} onChange={(e) => field('city')(e.target.value)} />
-          <input placeholder="Locality" value={form.locality} onChange={(e) => field('locality')(e.target.value)} />
-          <select value={form.language} onChange={(e) => field('language')(e.target.value)}>
-            <option value="hi">Hindi</option>
-            <option value="en">English</option>
-          </select>
-          <textarea aria-label="Clinical profile JSON" value={form.clinicalProfile} onChange={(e) => field('clinicalProfile')(e.target.value)} rows={10} />
-          <button type="submit">{editing ? 'Save changes' : 'Create patient'}</button>
-          {editing && (
-            <button type="button" className="secondary" onClick={() => { setEditing(null); setForm(emptyForm()); }}>
-              Cancel
-            </button>
-          )}
-        </form>
-      </section>
+      {(editing || creating) && (
+        <section className="panel">
+          <h2>{editing ? 'Edit test patient' : 'New test patient'}</h2>
+          <form onSubmit={submit} className="upload-form">
+            <label><span>Name</span><input required value={form.name} onChange={(e) => field('name')(e.target.value)} /></label>
+            <label><span>Age</span><input required type="number" min="0" value={form.age} onChange={(e) => field('age')(e.target.value)} /></label>
+            <label><span>Date of birth</span><input type="date" value={form.dateOfBirth} onChange={(e) => field('dateOfBirth')(e.target.value)} /></label>
+            <label><span>Sex</span><input required value={form.gender} onChange={(e) => field('gender')(e.target.value)} /></label>
+            <label><span>State</span><input required value={form.state} onChange={(e) => field('state')(e.target.value)} /></label>
+            <label><span>District</span><input required value={form.district} onChange={(e) => field('district')(e.target.value)} /></label>
+            <label><span>City</span><input value={form.city} onChange={(e) => field('city')(e.target.value)} /></label>
+            <label><span>Locality</span><input value={form.locality} onChange={(e) => field('locality')(e.target.value)} /></label>
+            <label>
+              <span>Language</span>
+              <select value={form.language} onChange={(e) => field('language')(e.target.value)}>
+                <option value="hi">Hindi</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <label className="span-full">
+              <span>Clinical profile (JSON)</span>
+              <textarea value={form.clinicalProfile} onChange={(e) => field('clinicalProfile')(e.target.value)} rows={8} />
+            </label>
+            <div className="form-actions span-full">
+              <button type="submit">{editing ? 'Save changes' : 'Create patient'}</button>
+              <button type="button" className="secondary" onClick={() => { setEditing(null); setCreating(false); setForm(emptyForm()); }}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
 
       <section className="panel">
         <h2>Profiles</h2>

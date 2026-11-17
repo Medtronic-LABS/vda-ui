@@ -38,7 +38,7 @@ export function Dashboard() {
       )}
       {error && (
         <section className="panel">
-          <p style={{ color: '#ef4444' }}>{error}</p>
+          <p className="error">{error}</p>
           <button className="secondary" onClick={load}>Retry</button>
         </section>
       )}
@@ -88,7 +88,7 @@ export function Search() {
           />
           <button>Search pgvector</button>
         </form>
-        {e && <p style={{ color: '#ef4444' }}>{e}</p>}
+        {e && <p className="error">{e}</p>}
       </section>
       {r && (
         <section className="panel">
@@ -157,10 +157,7 @@ export const Conversations = () => (
 );
 
 const ScoreCard = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '8px', padding: '14px', textAlign: 'center' }}>
-    <span style={{ fontSize: '0.85rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>{label}</span>
-    <strong style={{ fontSize: '1.4rem', color: '#38bdf8' }}>{value}</strong>
-  </div>
+  <b>{label}<br /><small>{value}</small></b>
 );
 
 export function RagQuality() {
@@ -214,7 +211,7 @@ export function RagQuality() {
       )}
       {error && (
         <section className="panel">
-          <p style={{ color: '#ef4444' }}>{error}</p>
+          <p className="error">{error}</p>
           <button className="secondary" onClick={load}>Retry</button>
         </section>
       )}
@@ -229,12 +226,12 @@ export function RagQuality() {
             </div>
 
             {evalNotice && (
-              <p style={{ padding: '8px 12px', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '6px', border: '1px solid rgba(56,189,248,0.2)', marginBottom: '16px' }}>
+              <p className="clinical-alert success" style={{ marginBottom: '16px' }}>
                 {evalNotice}
               </p>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+            <div className="tiles" style={{ marginBottom: '12px' }}>
               <ScoreCard label="Context Precision" value={percent(evalData?.contextPrecision)} />
               <ScoreCard label="Context Recall" value={percent(evalData?.contextRecall)} />
               <ScoreCard label="Faithfulness" value={percent(evalData?.faithfulness)} />
@@ -318,7 +315,7 @@ export function Health() {
         >
           Check health
         </button>
-        {err && <p style={{ color: '#ef4444' }}>{err}</p>}
+        {err && <p className="error">{err}</p>}
         {data && <pre>{JSON.stringify(data, null, 2)}</pre>}
       </section>
     </>
